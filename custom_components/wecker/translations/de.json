@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wecker einrichten",
+        "description": "Wecker wird einmalig eingerichtet. Danach fügst du auf der Integrationsseite einen oder mehrere virtuelle Wecker-Geräte hinzu."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Wecker ist bereits eingerichtet - es wird nur eine Instanz benötigt."
+    }
+  },
+  "config_subentries": {
+    "alarm_clock": {
+      "title": "Virtueller Wecker",
+      "step": {
+        "user": {
+          "title": "Wecker hinzufügen",
+          "data": {
+            "name": "Name",
+            "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
+            "output_media_player_entity_id": "Ausgabegerät (Media Player)",
+            "media_content_id": "Wecker-Sound (Dateipfad, Media-Source-URI oder Stream-URL)",
+            "media_content_type": "Medientyp",
+            "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
+            "light_rgb_color": "Lichtfarbe",
+            "light_brightness_pct": "Helligkeit des Lichts (%)",
+            "snooze_duration_minutes": "Standard-Schlummerdauer (Minuten)",
+            "default_volume": "Standard-Lautstärke"
+          }
+        },
+        "reconfigure": {
+          "title": "Wecker bearbeiten",
+          "data": {
+            "name": "Name",
+            "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
+            "output_media_player_entity_id": "Ausgabegerät (Media Player)",
+            "media_content_id": "Wecker-Sound (Dateipfad, Media-Source-URI oder Stream-URL)",
+            "media_content_type": "Medientyp",
+            "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
+            "light_rgb_color": "Lichtfarbe",
+            "light_brightness_pct": "Helligkeit des Lichts (%)",
+            "snooze_duration_minutes": "Standard-Schlummerdauer (Minuten)",
+            "default_volume": "Standard-Lautstärke"
+          }
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "weekday_mon_enabled": { "name": "Montag aktiv" },
+      "weekday_tue_enabled": { "name": "Dienstag aktiv" },
+      "weekday_wed_enabled": { "name": "Mittwoch aktiv" },
+      "weekday_thu_enabled": { "name": "Donnerstag aktiv" },
+      "weekday_fri_enabled": { "name": "Freitag aktiv" },
+      "weekday_sat_enabled": { "name": "Samstag aktiv" },
+      "weekday_sun_enabled": { "name": "Sonntag aktiv" },
+      "onetime_enabled": { "name": "Einmaliger Wecker aktiv" }
+    },
+    "time": {
+      "weekday_mon_time": { "name": "Montag Uhrzeit" },
+      "weekday_tue_time": { "name": "Dienstag Uhrzeit" },
+      "weekday_wed_time": { "name": "Mittwoch Uhrzeit" },
+      "weekday_thu_time": { "name": "Donnerstag Uhrzeit" },
+      "weekday_fri_time": { "name": "Freitag Uhrzeit" },
+      "weekday_sat_time": { "name": "Samstag Uhrzeit" },
+      "weekday_sun_time": { "name": "Sonntag Uhrzeit" }
+    },
+    "datetime": {
+      "onetime_datetime": { "name": "Einmaliger Wecker" }
+    },
+    "number": {
+      "snooze_duration": { "name": "Schlummerdauer" },
+      "volume": { "name": "Lautstärke" }
+    },
+    "binary_sensor": {
+      "ringing": { "name": "Klingelt" },
+      "snoozed": { "name": "Schlummert" }
+    },
+    "sensor": {
+      "next_trigger": { "name": "Nächster Alarm" }
+    },
+    "button": {
+      "test_ring": { "name": "Testklingeln" }
+    }
+  }
+}

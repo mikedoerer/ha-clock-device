@@ -1,0 +1,27 @@
+snooze:
+  name: Schlummern
+  description: >-
+    Unterbricht den klingelnden Wecker und lässt ihn nach der
+    Schlummer-Dauer erneut klingeln.
+  target:
+    device:
+      integration: wecker
+  fields:
+    duration:
+      name: Dauer
+      description: >-
+        Überschreibt für dieses eine Mal die konfigurierte
+        Schlummer-Dauer (Minuten).
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+
+stop:
+  name: Beenden
+  description: Beendet den klingelnden oder schlummernden Wecker vollständig.
+  target:
+    device:
+      integration: wecker

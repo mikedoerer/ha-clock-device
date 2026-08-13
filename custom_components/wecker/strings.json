@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Wecker",
+        "description": "Wecker is installed once. After setup, add one or more virtual alarm clock devices from the integration's page."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Wecker is already set up - only one instance is needed."
+    }
+  },
+  "config_subentries": {
+    "alarm_clock": {
+      "title": "Virtual alarm clock",
+      "step": {
+        "user": {
+          "title": "Add alarm clock",
+          "data": {
+            "name": "Name",
+            "input_satellite_entity_id": "Input device (Assist satellite)",
+            "output_media_player_entity_id": "Output device (media player)",
+            "media_content_id": "Alarm sound (file path, media-source URI, or stream URL)",
+            "media_content_type": "Media type",
+            "light_entity_ids": "Light(s) to turn on when ringing (optional)",
+            "light_rgb_color": "Light color",
+            "light_brightness_pct": "Light brightness (%)",
+            "snooze_duration_minutes": "Default snooze duration (minutes)",
+            "default_volume": "Default volume"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit alarm clock",
+          "data": {
+            "name": "Name",
+            "input_satellite_entity_id": "Input device (Assist satellite)",
+            "output_media_player_entity_id": "Output device (media player)",
+            "media_content_id": "Alarm sound (file path, media-source URI, or stream URL)",
+            "media_content_type": "Media type",
+            "light_entity_ids": "Light(s) to turn on when ringing (optional)",
+            "light_rgb_color": "Light color",
+            "light_brightness_pct": "Light brightness (%)",
+            "snooze_duration_minutes": "Default snooze duration (minutes)",
+            "default_volume": "Default volume"
+          }
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "weekday_mon_enabled": { "name": "Monday active" },
+      "weekday_tue_enabled": { "name": "Tuesday active" },
+      "weekday_wed_enabled": { "name": "Wednesday active" },
+      "weekday_thu_enabled": { "name": "Thursday active" },
+      "weekday_fri_enabled": { "name": "Friday active" },
+      "weekday_sat_enabled": { "name": "Saturday active" },
+      "weekday_sun_enabled": { "name": "Sunday active" },
+      "onetime_enabled": { "name": "One-time alarm active" }
+    },
+    "time": {
+      "weekday_mon_time": { "name": "Monday time" },
+      "weekday_tue_time": { "name": "Tuesday time" },
+      "weekday_wed_time": { "name": "Wednesday time" },
+      "weekday_thu_time": { "name": "Thursday time" },
+      "weekday_fri_time": { "name": "Friday time" },
+      "weekday_sat_time": { "name": "Saturday time" },
+      "weekday_sun_time": { "name": "Sunday time" }
+    },
+    "datetime": {
+      "onetime_datetime": { "name": "One-time alarm" }
+    },
+    "number": {
+      "snooze_duration": { "name": "Snooze duration" },
+      "volume": { "name": "Volume" }
+    },
+    "binary_sensor": {
+      "ringing": { "name": "Ringing" },
+      "snoozed": { "name": "Snoozed" }
+    },
+    "sensor": {
+      "next_trigger": { "name": "Next alarm" }
+    },
+    "button": {
+      "test_ring": { "name": "Test ring" }
+    }
+  }
+}
