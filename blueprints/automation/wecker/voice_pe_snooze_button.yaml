@@ -1,0 +1,65 @@
+blueprint:
+  name: "Wecker: Schlummern per Button-Event (z.B. Home Assistant Voice PE)"
+  description: >-
+    Löst `wecker.snooze` am gewählten Wecker-Gerät aus, sobald die gewählte
+    Button-Event-Entität einen der gewählten Event-Typen meldet - z.B. der
+    Center-Button einer Home Assistant Voice PE
+    (`event.<gerät>_button_press`).
+
+    Nutzt bewusst den `event.received`-Trigger statt eines `state`-Triggers:
+    Bei `state` + Attribut-Filter lösen identische, direkt aufeinanderfolgende
+    Presses (z.B. zweimal "long_press" hintereinander) kein zweites Mal aus,
+    weil sich der beobachtete Attributwert nicht ändert. `event.received`
+    kennt dieses Problem nicht.
+
+    Erfordert Home Assistant 2026.1 oder neuer (führte den
+    `event.received`-Trigger ein).
+
+    Bewusst nur Schlummern, kein Beenden-Blueprint - zum Wecker beenden
+    Sprachsteuerung oder die `Wecker beenden`-Button-Entity nutzen.
+  domain: automation
+  input:
+    button_entity:
+      name: Button-Event-Entität
+      description: >-
+        Die `event`-Entität des Buttons, z.B. `event.<gerät>_button_press`.
+      selector:
+        entity:
+          filter:
+            - domain: event
+    wecker_device:
+      name: Wecker-Gerät
+      description: Das virtuelle Wecker-Gerät, das geschlummert werden soll.
+      selector:
+        device:
+          filter:
+            - integration: wecker
+    event_types:
+      name: Event-Typen
+      description: >-
+        Welche vom Button gemeldeten Event-Typen Schlummern auslösen sollen.
+        Vorbelegt mit allen Presses der Home Assistant Voice PE (der einfache
+        Klick ist dort für die Sprachsteuerung reserviert und wird nicht als
+        Event gemeldet); bei anderen Buttons ggf. anpassen.
+      default:
+        - double_press
+        - triple_press
+        - long_press
+        - easter_egg_press
+      selector:
+        text:
+          multiple: true
+
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: !input button_entity
+    options:
+      event_type: !input event_types
+
+conditions: []
+
+actions:
+  - action: wecker.snooze
+    target:
+      device_id: !input wecker_device
