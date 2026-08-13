@@ -93,11 +93,18 @@ class _WeckerIntentHandler(intent.IntentHandler):
         raise NotImplementedError
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
-        coordinator = _resolve_coordinator(intent_obj)
-        if coordinator.state == AlarmState.IDLE:
-            raise intent.IntentHandleError("Gerade klingelt kein Wecker.")
-
-        await self._async_apply(coordinator)
+        # Raising IntentHandleError here would only log our message and speak
+        # a generic fallback instead - HA doesn't surface the exception text
+        # as speech on its own, so build the error response explicitly.
+        try:
+            coordinator = _resolve_coordinator(intent_obj)
+            if coordinator.state == AlarmState.IDLE:
+                raise intent.IntentHandleError("Gerade klingelt kein Wecker.")
+            await self._async_apply(coordinator)
+        except intent.IntentHandleError as err:
+            response = intent_obj.create_response()
+            response.async_set_error(intent.IntentResponseErrorCode.FAILED_TO_HANDLE, str(err))
+            return response
 
         response = intent_obj.create_response()
         response.async_set_speech(self._success_speech(coordinator))
