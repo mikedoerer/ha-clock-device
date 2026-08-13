@@ -13,6 +13,11 @@
   "config_subentries": {
     "alarm_clock": {
       "title": "Virtual alarm clock",
+      "entry_type": "Virtual alarm clock",
+      "initiate_flow": {
+        "user": "Add alarm clock",
+        "reconfigure": "Edit alarm clock"
+      },
       "step": {
         "user": {
           "title": "Add alarm clock",

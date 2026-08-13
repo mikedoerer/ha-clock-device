@@ -13,6 +13,11 @@
   "config_subentries": {
     "alarm_clock": {
       "title": "Virtueller Wecker",
+      "entry_type": "Virtueller Wecker",
+      "initiate_flow": {
+        "user": "Wecker hinzufügen",
+        "reconfigure": "Wecker bearbeiten"
+      },
       "step": {
         "user": {
           "title": "Wecker hinzufügen",
