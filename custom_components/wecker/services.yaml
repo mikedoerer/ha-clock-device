@@ -4,7 +4,7 @@ snooze:
     Unterbricht den klingelnden Wecker und lässt ihn nach der
     Schlummer-Dauer erneut klingeln.
   target:
-    device:
+    entity:
       integration: wecker
   fields:
     duration:
@@ -23,5 +23,5 @@ stop:
   name: Beenden
   description: Beendet den klingelnden oder schlummernden Wecker vollständig.
   target:
-    device:
+    entity:
       integration: wecker
