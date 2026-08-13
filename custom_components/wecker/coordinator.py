@@ -65,7 +65,6 @@ class AlarmClockCoordinator:
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
         self._unsub_snooze = None
-        self._light_prior_state: dict[str, dict[str, Any]] = {}
 
         self._store = Store[dict[str, Any]](hass, STORAGE_VERSION, f"{DOMAIN}.{self.subentry_id}")
 
@@ -231,12 +230,6 @@ class AlarmClockCoordinator:
 
         light_ids: list[str] = data.get(CONF_LIGHT_ENTITY_IDS) or []
         if light_ids:
-            # Only snapshot on the first ring of an alarm episode, not on re-ring after
-            # snooze, so a full stop() restores lights to how they were before the alarm.
-            if not self._light_prior_state:
-                self._light_prior_state = {
-                    entity_id: self._snapshot_light_state(entity_id) for entity_id in light_ids
-                }
             await self.hass.services.async_call(
                 "light",
                 "turn_on",
@@ -249,12 +242,6 @@ class AlarmClockCoordinator:
             )
 
         self._push_update()
-
-    def _snapshot_light_state(self, entity_id: str) -> dict[str, Any]:
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return {"on": False}
-        return {"on": state.state == "on", "attributes": dict(state.attributes)}
 
     async def _async_play_media(self, media_player: str) -> None:
         media = self.subentry.data.get(CONF_MEDIA) or {}
@@ -308,7 +295,7 @@ class AlarmClockCoordinator:
         if self.state == AlarmState.IDLE:
             return
         await self._async_silence()
-        await self._async_restore_lights()
+        await self._async_lights_off()
         self.state = AlarmState.IDLE
         self._push_update()
 
@@ -325,21 +312,12 @@ class AlarmClockCoordinator:
                 "media_player", "media_stop", {"entity_id": media_player}, blocking=True
             )
 
-    async def _async_restore_lights(self) -> None:
-        for entity_id, prior in self._light_prior_state.items():
-            if prior.get("on"):
-                attrs = prior.get("attributes", {})
-                service_data: dict[str, Any] = {"entity_id": entity_id}
-                if "rgb_color" in attrs:
-                    service_data["rgb_color"] = attrs["rgb_color"]
-                if "brightness" in attrs:
-                    service_data["brightness"] = attrs["brightness"]
-                await self.hass.services.async_call("light", "turn_on", service_data, blocking=True)
-            else:
-                await self.hass.services.async_call(
-                    "light", "turn_off", {"entity_id": entity_id}, blocking=True
-                )
-        self._light_prior_state = {}
+    async def _async_lights_off(self) -> None:
+        light_ids: list[str] = self.subentry.data.get(CONF_LIGHT_ENTITY_IDS) or []
+        if light_ids:
+            await self.hass.services.async_call(
+                "light", "turn_off", {"entity_id": light_ids}, blocking=True
+            )
 
     # ------------------------------------------------------------------
     # lifecycle
