@@ -16,7 +16,7 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 
 **Phase 1** ✅ fertig und live gegen eine echte Home-Assistant-Instanz verifiziert (HACS-Install, Config-Flow, Subentry-Gerät mit allen 21 Entities, Scheduling-Berechnung, echter Klingel-/Snooze-/Stop-Durchlauf inkl. Licht-Restore, keine Fehler im Log).
 
-**Phase 2** ✅ Sprachsteuerung: "schlummern" und "wecker beenden" (siehe unten) lösen `wecker.snooze`/`wecker.stop` am richtigen Gerät aus.
+**Phase 2** ✅ Sprachsteuerung: Schlummern/Beenden sowie Wochentags- und einmaligen Wecker per Sprache stellen (siehe unten).
 
 **Phase 3** ✅ Blueprint für Button-Snooze (siehe unten) - z.B. für die Center-Taste einer Home Assistant Voice PE.
 
@@ -28,10 +28,12 @@ Standardmäßig funktionieren folgende Sätze (Deutsch und Englisch, siehe [`cus
 
 - Schlummern: "schlummern", "wecker schlummern" / "snooze", "snooze the alarm"
 - Beenden: "wecker beenden", "wecker aus", "wecker stoppen" / "stop the alarm", "turn off the alarm"
+- Wochentag stellen (aktiviert den Tag automatisch mit): "wecker montags auf sieben uhr stellen", "stelle den wecker für montag auf sieben uhr dreißig", "wecker jeden tag auf sieben uhr stellen" / "set the alarm for monday to 7", "set alarm for monday to 7 30"
+- Einmaligen Wecker stellen: "wecker heute um zweiundzwanzig uhr stellen", "stelle den wecker morgen auf sieben uhr" / "set the alarm for tomorrow at 7", "set a one time alarm for today at 22"
 
-Die Integration kopiert diese Sätze beim ersten Setup einmalig nach `config/custom_sentences/<sprache>/wecker.yaml` (HA lädt Satzdateien nur aus diesem Verzeichnis - eigene Integrationen können sie nicht automatisch mitliefern). Bereits vorhandene Dateien werden nicht überschrieben, eigene Anpassungen oder ein Löschen der Datei (um die Sprachsteuerung abzuschalten) bleiben also erhalten.
+Die Integration kopiert diese Sätze bei jedem Setup nach `config/custom_sentences/<sprache>/wecker.yaml` (HA lädt Satzdateien nur aus diesem Verzeichnis - eigene Integrationen können sie nicht automatisch mitliefern), überschreibt dabei aber nur eine Datei, deren Inhalt noch exakt dem entspricht, was sie selbst zuletzt dorthin geschrieben hat. Eigene Anpassungen oder ein Löschen der Datei (um die Sprachsteuerung abzuschalten) bleiben damit dauerhaft erhalten - auch über Integrations-Updates hinweg -, während echte Änderungen an den mitgelieferten Sätzen (wie die Wochentags-/Einmal-Befehle in dieser Version) trotzdem ankommen, solange die Datei seit der letzten Installation unangetastet war.
 
-Welches Gerät reagiert, wird über die `satellite_id` des Sprachbefehls bestimmt: Zuerst wird nach einem Wecker gesucht, dessen konfiguriertes Eingabegerät (Assist-Satellit) genau das ist, das den Befehl empfangen hat. Passt kein Gerät (z.B. Text-Eingabe ohne Satellit), wird stattdessen der einzige gerade klingelnde/schlummernde Wecker genommen - klingeln mehrere oder keiner, kommt eine gesprochene Fehlermeldung statt einer Vermutung.
+Welches Gerät reagiert, wird über die `satellite_id` des Sprachbefehls bestimmt: Zuerst wird nach einem Wecker gesucht, dessen konfiguriertes Eingabegerät (Assist-Satellit) genau das ist, das den Befehl empfangen hat. Für Schlummern/Beenden wird sonst der einzige gerade klingelnde/schlummernde Wecker genommen; für die Wochentags-/Einmal-Befehle gibt es kein "klingelt gerade" als Anker, deshalb stattdessen der einzige überhaupt konfigurierte Wecker. Bleibt es in beiden Fällen mehrdeutig oder gibt es keinen passenden Wecker, kommt eine gesprochene Fehlermeldung statt einer Vermutung.
 
 ## Installation
 
@@ -62,6 +64,14 @@ Beim ersten Start kopiert die Integration außerdem automatisch die Sprachbefehl
 - Genau ein Wecker klingelt, Befehl über *Entwicklerwerkzeuge → Aktionen → `conversation.process`* ohne zugeordneten Satelliten → derselbe Wecker reagiert trotzdem (Fallback).
 - Kein Wecker klingelt, "schlummern" sagen → gesprochene Fehlermeldung, kein Fehler im Log.
 - Zwei Wecker klingeln gleichzeitig, Befehl über einen nicht zugeordneten Satelliten → gesprochene Mehrdeutigkeits-Fehlermeldung.
+- "wecker montags auf sieben uhr stellen" → Montag-Switch geht an, Montag-Uhrzeit zeigt 07:00, gesprochene Bestätigung nennt Gerät/Tag/Uhrzeit.
+- "wecker montags auf sieben uhr dreißig stellen" → 07:30 statt 07:00.
+- "wecker jeden tag auf sieben uhr stellen" → alle sieben Wochentag-Switches an, alle Zeiten 07:00.
+- "wecker heute um `<Uhrzeit nach jetzt>` uhr stellen" → "Einmaliger Wecker"-Datetime zeigt heutiges Datum, "Einmaliger Wecker aktiv"-Switch an.
+- "wecker heute um `<Uhrzeit, die gerade eben schon vorbei ist>` uhr stellen" → springt auf morgen, Bestätigung sagt "morgen" statt "heute".
+- "wecker morgen um sieben uhr stellen" → morgiges Datum, 07:00.
+- Integration erneut installieren (z.B. Update) → `config/custom_sentences/de/wecker.yaml` wird automatisch aktualisiert (neues Info-Log), solange die Datei seit der letzten Installation unverändert war.
+- Datei `config/custom_sentences/de/wecker.yaml` manuell bearbeiten oder löschen, dann HA neu starten → Datei bleibt unangetastet bzw. gelöscht, wird nicht wiederhergestellt.
 
 ## Button-Snooze-Blueprint (Phase 3)
 

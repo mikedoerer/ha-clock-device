@@ -48,6 +48,8 @@ ATTR_DURATION = "duration"
 # Voice control (Assist intents)
 INTENT_SNOOZE = "WeckerSnooze"
 INTENT_STOP = "WeckerStop"
+INTENT_SET_RECURRING = "WeckerSetRecurring"
+INTENT_SET_ONETIME = "WeckerSetOnetime"
 
 
 def signal_update(subentry_id: str) -> str:
