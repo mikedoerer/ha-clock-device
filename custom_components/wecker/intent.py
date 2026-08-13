@@ -61,6 +61,17 @@ async def _async_install_default_sentences(hass: HomeAssistant) -> None:
         await hass.services.async_call("conversation", "reload", blocking=True)
 
 
+_TEXT_NO_ALARM = {"de": "Gerade klingelt kein Wecker.", "en": "No alarm is ringing right now."}
+_TEXT_AMBIGUOUS = {
+    "de": "Mehrere Wecker klingeln gerade - das kann ich per Sprache nicht eindeutig zuordnen.",
+    "en": "Multiple alarms are ringing right now - I can't tell which one you mean.",
+}
+
+
+def _localized(texts: dict[str, str], language: str | None) -> str:
+    return texts.get((language or "de")[:2], texts["de"])
+
+
 def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
     """Pick which alarm clock device a voice command targets."""
     coordinators: list[AlarmClockCoordinator] = list(
@@ -77,19 +88,16 @@ def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
     if len(active) == 1:
         return active[0]
     if len(active) > 1:
-        raise intent.IntentHandleError(
-            "Mehrere Wecker klingeln gerade - das kann ich per Sprache nicht eindeutig zuordnen."
-        )
-    raise intent.IntentHandleError("Gerade klingelt kein Wecker.")
+        raise intent.IntentHandleError(_localized(_TEXT_AMBIGUOUS, intent_obj.language))
+    raise intent.IntentHandleError(_localized(_TEXT_NO_ALARM, intent_obj.language))
 
 
 class _WeckerIntentHandler(intent.IntentHandler):
     """Shared resolve-device-then-act flow for the snooze/stop intents."""
 
-    async def _async_apply(self, coordinator: AlarmClockCoordinator) -> None:
-        raise NotImplementedError
+    _SUCCESS_SPEECH: dict[str, str]  # {"de": "{name} ...", "en": "{name} ..."}
 
-    def _success_speech(self, coordinator: AlarmClockCoordinator) -> str:
+    async def _async_apply(self, coordinator: AlarmClockCoordinator) -> None:
         raise NotImplementedError
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
@@ -99,7 +107,7 @@ class _WeckerIntentHandler(intent.IntentHandler):
         try:
             coordinator = _resolve_coordinator(intent_obj)
             if coordinator.state == AlarmState.IDLE:
-                raise intent.IntentHandleError("Gerade klingelt kein Wecker.")
+                raise intent.IntentHandleError(_localized(_TEXT_NO_ALARM, intent_obj.language))
             await self._async_apply(coordinator)
         except intent.IntentHandleError as err:
             response = intent_obj.create_response()
@@ -107,7 +115,8 @@ class _WeckerIntentHandler(intent.IntentHandler):
             return response
 
         response = intent_obj.create_response()
-        response.async_set_speech(self._success_speech(coordinator))
+        speech = _localized(self._SUCCESS_SPEECH, intent_obj.language).format(name=coordinator.name)
+        response.async_set_speech(speech)
         return response
 
 
@@ -115,24 +124,20 @@ class WeckerSnoozeIntentHandler(_WeckerIntentHandler):
     """Handles the WeckerSnooze intent ("schlummern" / "snooze")."""
 
     intent_type = INTENT_SNOOZE
+    _SUCCESS_SPEECH = {"de": "{name} schlummert.", "en": "{name} snoozed."}
 
     async def _async_apply(self, coordinator: AlarmClockCoordinator) -> None:
         await coordinator.async_snooze()
-
-    def _success_speech(self, coordinator: AlarmClockCoordinator) -> str:
-        return f"{coordinator.name} schlummert."
 
 
 class WeckerStopIntentHandler(_WeckerIntentHandler):
     """Handles the WeckerStop intent ("wecker beenden" / "stop the alarm")."""
 
     intent_type = INTENT_STOP
+    _SUCCESS_SPEECH = {"de": "{name} beendet.", "en": "{name} stopped."}
 
     async def _async_apply(self, coordinator: AlarmClockCoordinator) -> None:
         await coordinator.async_stop()
-
-    def _success_speech(self, coordinator: AlarmClockCoordinator) -> str:
-        return f"{coordinator.name} beendet."
 
 
 async def async_setup_intents(hass: HomeAssistant) -> None:
