@@ -9,7 +9,7 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 - konfigurierbarem Eingabegerät (Assist-Satellit, z.B. HA Voice PE)
 - Ausgabegerät + Wecker-Sound in **einem** Schritt per "Medien durchsuchen"-Auswahl (das Gerät, auf dem du den Sound aussuchst, ist zugleich das Ausgabegerät - keine doppelte Geräteauswahl) plus separat einstellbarer Lautstärke
 - optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln - geht beim Beenden immer aus (kein Zustands-Restore)
-- Schlummern per Sprache, Button-Entity oder Voice-PE-Taste (Blueprint folgt in Phase 3)
+- Schlummern per Sprache, Button-Entity oder Voice-PE-Taste ([Blueprint](blueprints/automation/wecker/voice_pe_snooze_button.yaml))
 - Beenden per Sprache oder Button-Entity
 
 ## Status
@@ -18,7 +18,9 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 
 **Phase 2** ✅ Sprachsteuerung: "schlummern" und "wecker beenden" (siehe unten) lösen `wecker.snooze`/`wecker.stop` am richtigen Gerät aus.
 
-Geplant: Phase 3 (Blueprint für Button-Snooze), Phase 4 (HACS-Feinschliff/CI).
+**Phase 3** ✅ Blueprint für Button-Snooze (siehe unten) - z.B. für die Center-Taste einer Home Assistant Voice PE.
+
+Geplant: Phase 4 (HACS-Feinschliff/CI).
 
 ## Sprachsteuerung
 
@@ -57,3 +59,20 @@ Noch nicht über den HACS-Store gelistet. Lokal testen:
 - Genau ein Wecker klingelt, Befehl über *Entwicklerwerkzeuge → Aktionen → `conversation.process`* ohne zugeordneten Satelliten → derselbe Wecker reagiert trotzdem (Fallback).
 - Kein Wecker klingelt, "schlummern" sagen → gesprochene Fehlermeldung, kein Fehler im Log.
 - Zwei Wecker klingeln gleichzeitig, Befehl über einen nicht zugeordneten Satelliten → gesprochene Mehrdeutigkeits-Fehlermeldung.
+
+## Button-Snooze-Blueprint (Phase 3)
+
+Löst `wecker.snooze` am gewählten Wecker-Gerät aus, sobald eine Button-`event`-Entität (z.B. `event.<gerät>_button_press` einer Home Assistant Voice PE) einen der konfigurierten Event-Typen meldet.
+
+Erfordert **Home Assistant 2026.1 oder neuer** (führte den dafür genutzten `event.received`-Trigger ein).
+
+1. *Einstellungen → Automatisierungen & Szenen → Blueprints → Blueprint importieren* und die Rohdatei-URL von [`blueprints/automation/wecker/voice_pe_snooze_button.yaml`](blueprints/automation/wecker/voice_pe_snooze_button.yaml) angeben (oder die Datei manuell nach `config/blueprints/automation/wecker/` kopieren).
+2. Aus dem Blueprint eine Automatisierung anlegen, Button-Event-Entität und Wecker-Gerät auswählen. Die vorbelegten Event-Typen (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) passen zur Voice PE - bei anderen Buttons ggf. anpassen.
+
+Bewusst nur Schlummern, kein Beenden-Blueprint - zum Beenden Sprachsteuerung oder die `Wecker beenden`-Button-Entity nutzen.
+
+### Manuelle Verifikation (Phase 3)
+
+- Testklingeln auslösen, dann am Voice-PE-Button z.B. zweimal drücken (`double_press`) → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an.
+- Erneut klingeln lassen, direkt zweimal hintereinander denselben Press-Typ auslösen (z.B. zwei `long_press` nacheinander) → beide Male löst die Automatisierung aus (kein "hängenbleiben" wie bei einem naiven `state`-Trigger mit Attribut-Filter).
+- Press-Typ auslösen, der nicht in den konfigurierten Event-Typen enthalten ist → keine Reaktion.
