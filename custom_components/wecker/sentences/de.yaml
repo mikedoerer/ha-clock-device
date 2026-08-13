@@ -1,4 +1,29 @@
 language: "de"
+lists:
+  wecker_weekday:
+    values:
+      - in: "montag(s)?"
+        out: "mon"
+      - in: "dienstag(s)?"
+        out: "tue"
+      - in: "mittwoch(s)?"
+        out: "wed"
+      - in: "donnerstag(s)?"
+        out: "thu"
+      - in: "freitag(s)?"
+        out: "fri"
+      - in: "samstag(s)?"
+        out: "sat"
+      - in: "sonntag(s)?"
+        out: "sun"
+      - in: "(jeden tag|täglich)"
+        out: "all"
+  wecker_relative_day:
+    values:
+      - in: "heute"
+        out: "today"
+      - in: "morgen"
+        out: "tomorrow"
 intents:
   WeckerSnooze:
     data:
@@ -13,3 +38,13 @@ intents:
           - "wecker aus"
           - "wecker stoppen"
           - "wecker ausschalten"
+  WeckerSetRecurring:
+    data:
+      - sentences:
+          - "wecker {wecker_weekday} auf {0..23:hour} uhr [{0..59:minute}] stellen"
+          - "stelle den wecker für {wecker_weekday} auf {0..23:hour} uhr [{0..59:minute}]"
+  WeckerSetOnetime:
+    data:
+      - sentences:
+          - "wecker {wecker_relative_day} um {0..23:hour} uhr [{0..59:minute}] stellen"
+          - "stelle den wecker {wecker_relative_day} auf {0..23:hour} uhr [{0..59:minute}]"
