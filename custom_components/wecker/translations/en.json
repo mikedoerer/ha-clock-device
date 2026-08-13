@@ -80,6 +80,8 @@
       "next_trigger": { "name": "Next alarm" }
     },
     "button": {
+      "snooze": { "name": "Snooze" },
+      "stop": { "name": "Stop" },
       "test_ring": { "name": "Test ring" }
     }
   }

@@ -8,9 +8,9 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 - einmaligem Alarm (Datum + Uhrzeit), unabhängig vom wiederkehrenden Alarm
 - konfigurierbarem Eingabegerät (Assist-Satellit, z.B. HA Voice PE)
 - konfigurierbarem Ausgabegerät (Media Player) inkl. Sound-Quelle (per "Medien durchsuchen"-Auswahl aus deinen HA-Medienquellen) und Lautstärke
-- optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln
-- Schlummern (Sprache oder Button - Blueprint folgt in Phase 3)
-- Beenden **ausschließlich** per Sprache (Phase 2)
+- optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln - geht beim Beenden immer aus (kein Zustands-Restore)
+- Schlummern per Sprache (Phase 2), Button-Entity oder Voice-PE-Taste (Blueprint folgt in Phase 3)
+- Beenden per Sprache (Phase 2) oder Button-Entity
 
 ## Status
 
@@ -29,9 +29,9 @@ Noch nicht über den HACS-Store gelistet. Lokal testen:
 
 ## Manuelle Verifikation (Phase 1)
 
-- Nach dem Anlegen eines Geräts erscheinen alle Entities (Wochentag-Switches/-Uhrzeiten, einmaliger Wecker, Snooze-Dauer, Lautstärke, `Klingelt`/`Schlummert`, `Nächster Alarm`, `Testklingeln`) auf der Geräteseite.
+- Nach dem Anlegen eines Geräts erscheinen alle Entities (Wochentag-Switches/-Uhrzeiten, einmaliger Wecker, Snooze-Dauer, Lautstärke, `Klingelt`/`Schlummert`, `Nächster Alarm`, Buttons `Schlummern`/`Wecker beenden`/`Testklingeln`) auf der Geräteseite - `Testklingeln` liegt unter "Konfiguration", `Schlummern`/`Wecker beenden` unter den normalen Steuerelementen.
 - Für mehrere Wochentage unterschiedliche Uhrzeiten setzen und aktivieren → `sensor.<gerät>_nachster_alarm` zeigt den korrekten, nächsten individuellen Termin.
 - `button.<gerät>_testklingeln` drücken → konfigurierter Media Player spielt, konfiguriertes Licht geht an, `binary_sensor.<gerät>_klingelt` = an.
-- Service `wecker.snooze` (Entwicklerwerkzeuge) auf das Gerät anwenden → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, nach der Schlummerdauer klingelt es erneut.
-- Service `wecker.stop` anwenden → alles zurück auf Ruhezustand, Licht wird auf den Zustand vor dem Wecker zurückgesetzt.
+- `button.<gerät>_schlummern` (oder Service `wecker.snooze`) → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, nach der Schlummerdauer klingelt es erneut.
+- `button.<gerät>_wecker_beenden` (oder Service `wecker.stop`) → alles zurück auf Ruhezustand, konfiguriertes Licht geht aus.
 - HA neu starten → alle Einstellungen (Uhrzeiten, Wochentage, scharf/unscharf) bleiben erhalten.

@@ -80,6 +80,8 @@
       "next_trigger": { "name": "Nächster Alarm" }
     },
     "button": {
+      "snooze": { "name": "Schlummern" },
+      "stop": { "name": "Wecker beenden" },
       "test_ring": { "name": "Testklingeln" }
     }
   }

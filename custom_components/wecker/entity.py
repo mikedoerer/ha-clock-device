@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.helpers.entity import DeviceInfo, Entity, EntityCategory
 
 from .const import DOMAIN, signal_update
 from .coordinator import AlarmClockCoordinator
@@ -25,11 +25,17 @@ class WeckerEntity(Entity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, coordinator: AlarmClockCoordinator, key: str) -> None:
+    def __init__(
+        self,
+        coordinator: AlarmClockCoordinator,
+        key: str,
+        entity_category: EntityCategory | None = None,
+    ) -> None:
         self.coordinator = coordinator
         self._key = key
         self._attr_unique_id = f"{coordinator.subentry_id}_{key}"
         self._attr_translation_key = key
+        self._attr_entity_category = entity_category
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.subentry_id)},
             name=coordinator.name,
