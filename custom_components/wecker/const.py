@@ -20,6 +20,9 @@ PLATFORMS = [
 CONF_NAME = "name"
 CONF_INPUT_SATELLITE_ENTITY_ID = "input_satellite_entity_id"
 CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID = "output_media_player_entity_id"
+# Picked via HA's built-in media selector ("Browse media"); stored as the dict
+# it produces: {"entity_id": ..., "media_content_id": ..., "media_content_type": ...}.
+CONF_MEDIA = "media"
 CONF_MEDIA_CONTENT_ID = "media_content_id"
 CONF_MEDIA_CONTENT_TYPE = "media_content_type"
 CONF_LIGHT_ENTITY_IDS = "light_entity_ids"
@@ -29,9 +32,8 @@ CONF_SNOOZE_DURATION_MINUTES = "snooze_duration_minutes"
 CONF_DEFAULT_VOLUME = "default_volume"
 
 # Defaults
-DEFAULT_MEDIA_CONTENT_TYPE = "music"
-DEFAULT_LIGHT_RGB_COLOR = [255, 189, 89]
-DEFAULT_LIGHT_BRIGHTNESS_PCT = 100
+DEFAULT_LIGHT_RGB_COLOR = [0, 200, 0]
+DEFAULT_LIGHT_BRIGHTNESS_PCT = 70
 DEFAULT_SNOOZE_DURATION_MINUTES = 9
 DEFAULT_VOLUME = 0.7
 DEFAULT_ALARM_TIME = "07:00:00"

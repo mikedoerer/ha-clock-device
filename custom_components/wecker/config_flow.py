@@ -25,12 +25,11 @@ from homeassistant.helpers.selector import (
     ColorRGBSelector,
     EntitySelector,
     EntitySelectorConfig,
+    MediaSelector,
+    MediaSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
     TextSelector,
 )
 
@@ -40,21 +39,17 @@ from .const import (
     CONF_LIGHT_BRIGHTNESS_PCT,
     CONF_LIGHT_ENTITY_IDS,
     CONF_LIGHT_RGB_COLOR,
-    CONF_MEDIA_CONTENT_ID,
-    CONF_MEDIA_CONTENT_TYPE,
+    CONF_MEDIA,
     CONF_NAME,
     CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID,
     CONF_SNOOZE_DURATION_MINUTES,
     DEFAULT_LIGHT_BRIGHTNESS_PCT,
     DEFAULT_LIGHT_RGB_COLOR,
-    DEFAULT_MEDIA_CONTENT_TYPE,
     DEFAULT_SNOOZE_DURATION_MINUTES,
     DEFAULT_VOLUME,
     DOMAIN,
     SUBENTRY_TYPE_ALARM_CLOCK,
 )
-
-MEDIA_CONTENT_TYPE_OPTIONS = ["music", "sound", "channel", "playlist"]
 
 
 def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
@@ -71,17 +66,9 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
                 default=defaults.get(CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID),
             ): EntitySelector(EntitySelectorConfig(domain="media_player")),
             vol.Required(
-                CONF_MEDIA_CONTENT_ID,
-                default=defaults.get(CONF_MEDIA_CONTENT_ID),
-            ): TextSelector(),
-            vol.Optional(
-                CONF_MEDIA_CONTENT_TYPE,
-                default=defaults.get(CONF_MEDIA_CONTENT_TYPE, DEFAULT_MEDIA_CONTENT_TYPE),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=MEDIA_CONTENT_TYPE_OPTIONS, mode=SelectSelectorMode.DROPDOWN
-                )
-            ),
+                CONF_MEDIA,
+                default=defaults.get(CONF_MEDIA),
+            ): MediaSelector(MediaSelectorConfig()),
             vol.Optional(
                 CONF_LIGHT_ENTITY_IDS,
                 default=defaults.get(CONF_LIGHT_ENTITY_IDS, []),

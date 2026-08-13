@@ -22,6 +22,7 @@ from .const import (
     CONF_LIGHT_BRIGHTNESS_PCT,
     CONF_LIGHT_ENTITY_IDS,
     CONF_LIGHT_RGB_COLOR,
+    CONF_MEDIA,
     CONF_MEDIA_CONTENT_ID,
     CONF_MEDIA_CONTENT_TYPE,
     CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID,
@@ -256,14 +257,20 @@ class AlarmClockCoordinator:
         return {"on": state.state == "on", "attributes": dict(state.attributes)}
 
     async def _async_play_media(self, media_player: str) -> None:
-        data = self.subentry.data
+        media = self.subentry.data.get(CONF_MEDIA) or {}
+        media_content_id = media.get(CONF_MEDIA_CONTENT_ID)
+        if not media_content_id:
+            _LOGGER.warning(
+                "Wecker '%s': kein Wecker-Sound konfiguriert, spiele nichts ab", self.name
+            )
+            return
         await self.hass.services.async_call(
             "media_player",
             "play_media",
             {
                 "entity_id": media_player,
-                "media_content_id": data.get(CONF_MEDIA_CONTENT_ID),
-                "media_content_type": data.get(CONF_MEDIA_CONTENT_TYPE, "music"),
+                "media_content_id": media_content_id,
+                "media_content_type": media.get(CONF_MEDIA_CONTENT_TYPE, "music"),
             },
             blocking=True,
         )
