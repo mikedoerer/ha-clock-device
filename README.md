@@ -14,7 +14,7 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 
 ## Status
 
-**Phase 1** (dieses Repo aktuell): Kern-Integration - Geräte, Entities, Zeitplan-Logik, `wecker.snooze`/`wecker.stop`-Services. Vollständig über die HA-Oberfläche und Entwicklerwerkzeuge nutz- und testbar, noch ohne Sprachsteuerung und ohne Button-Blueprint.
+**Phase 1** ✅ fertig und live gegen eine echte Home-Assistant-Instanz verifiziert (HACS-Install, Config-Flow, Subentry-Gerät mit allen 21 Entities, Scheduling-Berechnung, echter Klingel-/Snooze-/Stop-Durchlauf inkl. Licht-Restore, keine Fehler im Log). Noch ohne Sprachsteuerung und ohne Button-Blueprint.
 
 Geplant: Phase 2 (Sprachsteuerung), Phase 3 (Blueprint für Button-Snooze), Phase 4 (HACS-Feinschliff/CI).
 
