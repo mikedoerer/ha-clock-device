@@ -47,23 +47,23 @@
   },
   "entity": {
     "switch": {
-      "weekday_mon_enabled": { "name": "Monday active" },
-      "weekday_tue_enabled": { "name": "Tuesday active" },
-      "weekday_wed_enabled": { "name": "Wednesday active" },
-      "weekday_thu_enabled": { "name": "Thursday active" },
-      "weekday_fri_enabled": { "name": "Friday active" },
-      "weekday_sat_enabled": { "name": "Saturday active" },
-      "weekday_sun_enabled": { "name": "Sunday active" },
+      "weekday_mon_enabled": { "name": "1 Monday active" },
+      "weekday_tue_enabled": { "name": "2 Tuesday active" },
+      "weekday_wed_enabled": { "name": "3 Wednesday active" },
+      "weekday_thu_enabled": { "name": "4 Thursday active" },
+      "weekday_fri_enabled": { "name": "5 Friday active" },
+      "weekday_sat_enabled": { "name": "6 Saturday active" },
+      "weekday_sun_enabled": { "name": "7 Sunday active" },
       "onetime_enabled": { "name": "One-time alarm active" }
     },
     "time": {
-      "weekday_mon_time": { "name": "Monday time" },
-      "weekday_tue_time": { "name": "Tuesday time" },
-      "weekday_wed_time": { "name": "Wednesday time" },
-      "weekday_thu_time": { "name": "Thursday time" },
-      "weekday_fri_time": { "name": "Friday time" },
-      "weekday_sat_time": { "name": "Saturday time" },
-      "weekday_sun_time": { "name": "Sunday time" }
+      "weekday_mon_time": { "name": "1 Monday time" },
+      "weekday_tue_time": { "name": "2 Tuesday time" },
+      "weekday_wed_time": { "name": "3 Wednesday time" },
+      "weekday_thu_time": { "name": "4 Thursday time" },
+      "weekday_fri_time": { "name": "5 Friday time" },
+      "weekday_sat_time": { "name": "6 Saturday time" },
+      "weekday_sun_time": { "name": "7 Sunday time" }
     },
     "datetime": {
       "onetime_datetime": { "name": "One-time alarm" }

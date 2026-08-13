@@ -47,23 +47,23 @@
   },
   "entity": {
     "switch": {
-      "weekday_mon_enabled": { "name": "Montag aktiv" },
-      "weekday_tue_enabled": { "name": "Dienstag aktiv" },
-      "weekday_wed_enabled": { "name": "Mittwoch aktiv" },
-      "weekday_thu_enabled": { "name": "Donnerstag aktiv" },
-      "weekday_fri_enabled": { "name": "Freitag aktiv" },
-      "weekday_sat_enabled": { "name": "Samstag aktiv" },
-      "weekday_sun_enabled": { "name": "Sonntag aktiv" },
+      "weekday_mon_enabled": { "name": "1 Montag aktiv" },
+      "weekday_tue_enabled": { "name": "2 Dienstag aktiv" },
+      "weekday_wed_enabled": { "name": "3 Mittwoch aktiv" },
+      "weekday_thu_enabled": { "name": "4 Donnerstag aktiv" },
+      "weekday_fri_enabled": { "name": "5 Freitag aktiv" },
+      "weekday_sat_enabled": { "name": "6 Samstag aktiv" },
+      "weekday_sun_enabled": { "name": "7 Sonntag aktiv" },
       "onetime_enabled": { "name": "Einmaliger Wecker aktiv" }
     },
     "time": {
-      "weekday_mon_time": { "name": "Montag Uhrzeit" },
-      "weekday_tue_time": { "name": "Dienstag Uhrzeit" },
-      "weekday_wed_time": { "name": "Mittwoch Uhrzeit" },
-      "weekday_thu_time": { "name": "Donnerstag Uhrzeit" },
-      "weekday_fri_time": { "name": "Freitag Uhrzeit" },
-      "weekday_sat_time": { "name": "Samstag Uhrzeit" },
-      "weekday_sun_time": { "name": "Sonntag Uhrzeit" }
+      "weekday_mon_time": { "name": "1 Montag Uhrzeit" },
+      "weekday_tue_time": { "name": "2 Dienstag Uhrzeit" },
+      "weekday_wed_time": { "name": "3 Mittwoch Uhrzeit" },
+      "weekday_thu_time": { "name": "4 Donnerstag Uhrzeit" },
+      "weekday_fri_time": { "name": "5 Freitag Uhrzeit" },
+      "weekday_sat_time": { "name": "6 Samstag Uhrzeit" },
+      "weekday_sun_time": { "name": "7 Sonntag Uhrzeit" }
     },
     "datetime": {
       "onetime_datetime": { "name": "Einmaliger Wecker" }

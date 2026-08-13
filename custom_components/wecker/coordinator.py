@@ -295,11 +295,11 @@ class AlarmClockCoordinator:
         if self.state == AlarmState.IDLE:
             return
         await self._async_silence()
-        await self._async_lights_off()
         self.state = AlarmState.IDLE
         self._push_update()
 
     async def _async_silence(self) -> None:
+        """Stop sound and light - shared by snooze (temporary) and stop (final)."""
         if self._unsub_media_watch is not None:
             self._unsub_media_watch()
             self._unsub_media_watch = None
@@ -311,6 +311,7 @@ class AlarmClockCoordinator:
             await self.hass.services.async_call(
                 "media_player", "media_stop", {"entity_id": media_player}, blocking=True
             )
+        await self._async_lights_off()
 
     async def _async_lights_off(self) -> None:
         light_ids: list[str] = self.subentry.data.get(CONF_LIGHT_ENTITY_IDS) or []
