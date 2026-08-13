@@ -20,7 +20,7 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 
 **Phase 3** ✅ Blueprint für Button-Snooze (siehe unten) - z.B. für die Center-Taste einer Home Assistant Voice PE.
 
-Geplant: Phase 4 (HACS-Feinschliff/CI).
+**Phase 4** ✅ HACS-Feinschliff (diese Installationsanleitung) und CI ([`validate.yml`](.github/workflows/validate.yml) prüft `hassfest` + HACS-Anforderungen bei jedem Push/PR).
 
 ## Sprachsteuerung
 
@@ -33,14 +33,17 @@ Die Integration kopiert diese Sätze beim ersten Setup einmalig nach `config/cus
 
 Welches Gerät reagiert, wird über die `satellite_id` des Sprachbefehls bestimmt: Zuerst wird nach einem Wecker gesucht, dessen konfiguriertes Eingabegerät (Assist-Satellit) genau das ist, das den Befehl empfangen hat. Passt kein Gerät (z.B. Text-Eingabe ohne Satellit), wird stattdessen der einzige gerade klingelnde/schlummernde Wecker genommen - klingeln mehrere oder keiner, kommt eine gesprochene Fehlermeldung statt einer Vermutung.
 
-## Installation (Entwicklungsstand)
+## Installation
 
-Noch nicht über den HACS-Store gelistet. Lokal testen:
+Noch nicht im offiziellen HACS-Store gelistet - als HACS-"Custom Repository" hinzufügen:
 
-1. `custom_components/wecker/` in dein HA-`config/custom_components/`-Verzeichnis kopieren (oder als HACS-"Custom Repository" mit dieser GitHub-URL hinzufügen).
-2. Home Assistant neu starten.
-3. *Einstellungen → Geräte & Dienste → Integration hinzufügen → "Wecker"*.
-4. Auf der Integrationsseite ein virtuelles Wecker-Gerät hinzufügen und konfigurieren.
+1. In HACS → *Integrationen* → oben rechts *⋮* → *Benutzerdefinierte Repositories* → diese GitHub-URL mit Kategorie "Integration" eintragen (alternativ `custom_components/wecker/` manuell nach `config/custom_components/` kopieren).
+2. "Wecker" über HACS installieren.
+3. Home Assistant neu starten.
+4. *Einstellungen → Geräte & Dienste → Integration hinzufügen → "Wecker"* - legt die Integration einmalig an (ohne Konfigurationsdialog).
+5. Auf der neuen Integrationsseite über "+ Gerät hinzufügen" ein virtuelles Wecker-Gerät als Subentry anlegen und konfigurieren (Wochentage/Uhrzeiten, Ausgabegerät + Sound, optional Licht und Eingabegerät). Beliebig oft wiederholen für weitere Wecker.
+
+Beim ersten Start kopiert die Integration außerdem automatisch die Sprachbefehle nach `config/custom_sentences/` (siehe [Sprachsteuerung](#sprachsteuerung)) - dafür ist kein weiterer Schritt nötig. Für Schlummern per Hardware-Taste (z.B. Home Assistant Voice PE) den [Button-Snooze-Blueprint](#button-snooze-blueprint-phase-3) separat importieren.
 
 ## Manuelle Verifikation (Phase 1)
 
