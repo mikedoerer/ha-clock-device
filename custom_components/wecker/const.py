@@ -45,10 +45,6 @@ SERVICE_SNOOZE = "snooze"
 SERVICE_STOP = "stop"
 ATTR_DURATION = "duration"
 
-# Voice control (Assist intents)
-INTENT_SNOOZE = "WeckerSnooze"
-INTENT_STOP = "WeckerStop"
-
 
 def signal_update(subentry_id: str) -> str:
     """Return the dispatcher signal name for updates to one alarm clock device."""
