@@ -19,8 +19,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
-            "output_media_player_entity_id": "Ausgabegerät (Media Player)",
-            "media": "Wecker-Sound (Medien durchsuchen)",
+            "media": "Ausgabegerät + Wecker-Sound (Medien durchsuchen)",
             "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
             "light_rgb_color": "Lichtfarbe",
             "light_brightness_pct": "Helligkeit des Lichts (%)",
@@ -33,8 +32,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
-            "output_media_player_entity_id": "Ausgabegerät (Media Player)",
-            "media": "Wecker-Sound (Medien durchsuchen)",
+            "media": "Ausgabegerät + Wecker-Sound (Medien durchsuchen)",
             "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
             "light_rgb_color": "Lichtfarbe",
             "light_brightness_pct": "Helligkeit des Lichts (%)",

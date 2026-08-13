@@ -19,8 +19,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Input device (Assist satellite)",
-            "output_media_player_entity_id": "Output device (media player)",
-            "media": "Alarm sound (browse media)",
+            "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",
             "light_brightness_pct": "Light brightness (%)",
@@ -33,8 +32,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Input device (Assist satellite)",
-            "output_media_player_entity_id": "Output device (media player)",
-            "media": "Alarm sound (browse media)",
+            "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",
             "light_brightness_pct": "Light brightness (%)",

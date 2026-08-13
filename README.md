@@ -7,7 +7,7 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 - wiederkehrendem Alarm - jeder Wochentag einzeln schaltbar, mit **eigener** Uhrzeit je Wochentag
 - einmaligem Alarm (Datum + Uhrzeit), unabhängig vom wiederkehrenden Alarm
 - konfigurierbarem Eingabegerät (Assist-Satellit, z.B. HA Voice PE)
-- konfigurierbarem Ausgabegerät (Media Player) inkl. Sound-Quelle (per "Medien durchsuchen"-Auswahl aus deinen HA-Medienquellen) und Lautstärke
+- Ausgabegerät + Wecker-Sound in **einem** Schritt per "Medien durchsuchen"-Auswahl (das Gerät, auf dem du den Sound aussuchst, ist zugleich das Ausgabegerät - keine doppelte Geräteauswahl) plus separat einstellbarer Lautstärke
 - optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln - geht beim Beenden immer aus (kein Zustands-Restore)
 - Schlummern per Sprache (Phase 2), Button-Entity oder Voice-PE-Taste (Blueprint folgt in Phase 3)
 - Beenden per Sprache (Phase 2) oder Button-Entity

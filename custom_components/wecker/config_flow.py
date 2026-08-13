@@ -41,7 +41,6 @@ from .const import (
     CONF_LIGHT_RGB_COLOR,
     CONF_MEDIA,
     CONF_NAME,
-    CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID,
     CONF_SNOOZE_DURATION_MINUTES,
     DEFAULT_LIGHT_BRIGHTNESS_PCT,
     DEFAULT_LIGHT_RGB_COLOR,
@@ -53,7 +52,11 @@ from .const import (
 
 
 def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
-    """Build the subentry form schema, pre-filled from `defaults`."""
+    """Build the subentry form schema, pre-filled from `defaults`.
+
+    The output media_player is not a separate field - it's whichever device
+    the media selector below was browsed on, avoiding picking it twice.
+    """
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME)): TextSelector(),
@@ -61,10 +64,6 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
                 CONF_INPUT_SATELLITE_ENTITY_ID,
                 default=defaults.get(CONF_INPUT_SATELLITE_ENTITY_ID),
             ): EntitySelector(EntitySelectorConfig(domain="assist_satellite")),
-            vol.Required(
-                CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID,
-                default=defaults.get(CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID),
-            ): EntitySelector(EntitySelectorConfig(domain="media_player")),
             vol.Required(
                 CONF_MEDIA,
                 default=defaults.get(CONF_MEDIA),

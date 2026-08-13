@@ -25,7 +25,6 @@ from .const import (
     CONF_MEDIA,
     CONF_MEDIA_CONTENT_ID,
     CONF_MEDIA_CONTENT_TYPE,
-    CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID,
     CONF_SNOOZE_DURATION_MINUTES,
     DEFAULT_SNOOZE_DURATION_MINUTES,
     DEFAULT_VOLUME,
@@ -211,10 +210,15 @@ class AlarmClockCoordinator:
     # ------------------------------------------------------------------
     # ringing / snooze / stop
     # ------------------------------------------------------------------
+    def _media_player_entity_id(self) -> str | None:
+        """The output media_player - whichever device the media selector was browsed on."""
+        media = self.subentry.data.get(CONF_MEDIA) or {}
+        return media.get("entity_id")
+
     async def async_start_ringing(self) -> None:
         self.state = AlarmState.RINGING
         data = self.subentry.data
-        media_player = data.get(CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID)
+        media_player = self._media_player_entity_id()
 
         if media_player:
             await self.hass.services.async_call(
@@ -269,7 +273,7 @@ class AlarmClockCoordinator:
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state not in _MEDIA_IDLE_STATES:
             return
-        media_player = self.subentry.data.get(CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID)
+        media_player = self._media_player_entity_id()
         if media_player:
             await self._async_play_media(media_player)
 
@@ -306,7 +310,7 @@ class AlarmClockCoordinator:
         if self._unsub_snooze is not None:
             self._unsub_snooze()
             self._unsub_snooze = None
-        media_player = self.subentry.data.get(CONF_OUTPUT_MEDIA_PLAYER_ENTITY_ID)
+        media_player = self._media_player_entity_id()
         if media_player:
             await self.hass.services.async_call(
                 "media_player", "media_stop", {"entity_id": media_player}, blocking=True
