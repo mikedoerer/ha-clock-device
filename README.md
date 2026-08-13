@@ -9,14 +9,27 @@ Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → In
 - konfigurierbarem Eingabegerät (Assist-Satellit, z.B. HA Voice PE)
 - Ausgabegerät + Wecker-Sound in **einem** Schritt per "Medien durchsuchen"-Auswahl (das Gerät, auf dem du den Sound aussuchst, ist zugleich das Ausgabegerät - keine doppelte Geräteauswahl) plus separat einstellbarer Lautstärke
 - optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln - geht beim Beenden immer aus (kein Zustands-Restore)
-- Schlummern per Sprache (Phase 2), Button-Entity oder Voice-PE-Taste (Blueprint folgt in Phase 3)
-- Beenden per Sprache (Phase 2) oder Button-Entity
+- Schlummern per Sprache, Button-Entity oder Voice-PE-Taste (Blueprint folgt in Phase 3)
+- Beenden per Sprache oder Button-Entity
 
 ## Status
 
-**Phase 1** ✅ fertig und live gegen eine echte Home-Assistant-Instanz verifiziert (HACS-Install, Config-Flow, Subentry-Gerät mit allen 21 Entities, Scheduling-Berechnung, echter Klingel-/Snooze-/Stop-Durchlauf inkl. Licht-Restore, keine Fehler im Log). Noch ohne Sprachsteuerung und ohne Button-Blueprint.
+**Phase 1** ✅ fertig und live gegen eine echte Home-Assistant-Instanz verifiziert (HACS-Install, Config-Flow, Subentry-Gerät mit allen 21 Entities, Scheduling-Berechnung, echter Klingel-/Snooze-/Stop-Durchlauf inkl. Licht-Restore, keine Fehler im Log).
 
-Geplant: Phase 2 (Sprachsteuerung), Phase 3 (Blueprint für Button-Snooze), Phase 4 (HACS-Feinschliff/CI).
+**Phase 2** ✅ Sprachsteuerung: "schlummern" und "wecker beenden" (siehe unten) lösen `wecker.snooze`/`wecker.stop` am richtigen Gerät aus.
+
+Geplant: Phase 3 (Blueprint für Button-Snooze), Phase 4 (HACS-Feinschliff/CI).
+
+## Sprachsteuerung
+
+Standardmäßig funktionieren folgende Sätze (Deutsch und Englisch, siehe [`custom_components/wecker/sentences/`](custom_components/wecker/sentences/)):
+
+- Schlummern: "schlummern", "wecker schlummern" / "snooze", "snooze the alarm"
+- Beenden: "wecker beenden", "wecker aus", "wecker stoppen" / "stop the alarm", "turn off the alarm"
+
+Die Integration kopiert diese Sätze beim ersten Setup einmalig nach `config/custom_sentences/<sprache>/wecker.yaml` (HA lädt Satzdateien nur aus diesem Verzeichnis - eigene Integrationen können sie nicht automatisch mitliefern). Bereits vorhandene Dateien werden nicht überschrieben, eigene Anpassungen oder ein Löschen der Datei (um die Sprachsteuerung abzuschalten) bleiben also erhalten.
+
+Welches Gerät reagiert, wird über die `satellite_id` des Sprachbefehls bestimmt: Zuerst wird nach einem Wecker gesucht, dessen konfiguriertes Eingabegerät (Assist-Satellit) genau das ist, das den Befehl empfangen hat. Passt kein Gerät (z.B. Text-Eingabe ohne Satellit), wird stattdessen der einzige gerade klingelnde/schlummernde Wecker genommen - klingeln mehrere oder keiner, kommt eine gesprochene Fehlermeldung statt einer Vermutung.
 
 ## Installation (Entwicklungsstand)
 
@@ -35,3 +48,12 @@ Noch nicht über den HACS-Store gelistet. Lokal testen:
 - `button.<gerät>_schlummern` (oder Service `wecker.snooze`) → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, nach der Schlummerdauer klingelt es erneut.
 - `button.<gerät>_wecker_beenden` (oder Service `wecker.stop`) → alles zurück auf Ruhezustand, konfiguriertes Licht geht aus.
 - HA neu starten → alle Einstellungen (Uhrzeiten, Wochentage, scharf/unscharf) bleiben erhalten.
+
+## Manuelle Verifikation (Phase 2)
+
+- Nach dem ersten Setup existieren `config/custom_sentences/de/wecker.yaml` und `.../en/wecker.yaml`, im Log steht dazu ein Info-Log ("Sprachbefehle nach ... installiert").
+- Testklingeln auslösen, dann am konfigurierten Assist-Satelliten "schlummern" sagen → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, Satellit spricht eine Bestätigung.
+- Erneut klingeln lassen, "wecker beenden" sagen → Ruhezustand, Licht aus, Bestätigung.
+- Genau ein Wecker klingelt, Befehl über *Entwicklerwerkzeuge → Aktionen → `conversation.process`* ohne zugeordneten Satelliten → derselbe Wecker reagiert trotzdem (Fallback).
+- Kein Wecker klingelt, "schlummern" sagen → gesprochene Fehlermeldung, kein Fehler im Log.
+- Zwei Wecker klingeln gleichzeitig, Befehl über einen nicht zugeordneten Satelliten → gesprochene Mehrdeutigkeits-Fehlermeldung.
