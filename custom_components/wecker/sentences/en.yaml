@@ -1,0 +1,15 @@
+language: "en"
+intents:
+  WeckerSnooze:
+    data:
+      - sentences:
+          - "snooze"
+          - "snooze the alarm"
+          - "snooze alarm"
+  WeckerStop:
+    data:
+      - sentences:
+          - "stop the alarm"
+          - "stop alarm"
+          - "turn off the alarm"
+          - "turn off alarm"
