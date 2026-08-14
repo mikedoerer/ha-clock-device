@@ -32,6 +32,7 @@ The following sentences work out of the box (German and English, see [`custom_co
 - Set one-time alarm: "wecker sieben uhr stellen" (no date → next possible time: today if the time hasn't passed yet, otherwise tomorrow), "wecker heute um zweiundzwanzig uhr stellen", "stelle den wecker morgen auf sieben uhr", "wecker montag um sieben uhr stellen" (next Monday), "wecker am 15. august um sieben uhr stellen" (next occurrence of that date, otherwise next year) / "set the alarm at 7" (no date → next possible time), "set the alarm for tomorrow at 7", "set a one time alarm for today at 22", "set the alarm for monday at 7", "set the alarm for the 15th of august at 7"
 - Delete weekday(s) (disables, time is kept): "wecker montag löschen", "wecker jeden montag bis mittwoch löschen", "lösche den wecker für montag" / "delete the alarm for monday", "delete the alarm for every monday through wednesday"
 - Delete one-time alarm: "wecker löschen", "lösche den wecker" / "delete the alarm", "delete alarm"
+- Terse German forms also work, dropping "auf/um ... stellen" entirely: "wecker 8 uhr" (one-time), "wecker freitag 8 uhr" (one-time, next Friday), "wecker freitags 8 uhr" (recurring, every Friday) - the trailing "-s" on the weekday is what tells one-time and recurring apart here, since neither a preposition nor "stellen" is present to disambiguate otherwise.
 
 The integration copies these sentences into `config/custom_sentences/<language>/wecker.yaml` on every setup (HA only loads sentence files from that directory - a custom integration can't ship them so they're picked up automatically), but only ever overwrites a file whose content still matches exactly what it last wrote there itself. Your own edits, or deleting the file (to disable voice control), are therefore preserved permanently - even across integration updates - while genuine changes to the bundled sentences (like the weekday/one-time/delete commands in this version) still land, as long as the file hasn't been touched since the last install.
 
@@ -81,6 +82,8 @@ On first start, the integration also automatically copies the voice commands to 
 - "wecker montag löschen" → the Monday switch turns off, the Monday time stays unchanged, the confirmation names device/day.
 - "wecker jeden montag bis mittwoch löschen" → the Monday, Tuesday, and Wednesday switches turn off.
 - "wecker löschen" (without a day) → the "One-time alarm active" switch turns off, the stored date stays unchanged.
+- "wecker 8 uhr" (real spoken voice input, no "um"/"stellen") → sets the one-time alarm, not misrecognized as a generic entity-control command.
+- "wecker freitag 8 uhr" vs "wecker freitags 8 uhr" (real spoken voice input) → the first sets the one-time alarm for next Friday, the second arms the recurring Friday switch - the "-s" is what tells them apart.
 - Reinstall the integration (e.g. update) → `config/custom_sentences/de/wecker.yaml` is automatically updated (new info log), as long as the file hasn't changed since the last install.
 - Manually edit or delete the file `config/custom_sentences/de/wecker.yaml`, then restart HA → the file stays untouched or deleted, respectively - it's not recreated.
 
