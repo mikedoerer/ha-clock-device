@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -34,7 +35,7 @@ class SnoozeDurationNumber(WeckerEntity, NumberEntity):
     _attr_mode = NumberMode.BOX
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "snooze_duration")
+        super().__init__(coordinator, "snooze_duration", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> float:
@@ -54,7 +55,7 @@ class VolumeNumber(WeckerEntity, NumberEntity):
     _attr_mode = NumberMode.SLIDER
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "volume")
+        super().__init__(coordinator, "volume", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> float:

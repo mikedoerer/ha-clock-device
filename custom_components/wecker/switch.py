@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -33,7 +34,7 @@ class WeekdayEnabledSwitch(WeckerEntity, SwitchEntity):
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: AlarmClockCoordinator, day: Weekday) -> None:
-        super().__init__(coordinator, f"weekday_{day.value}_enabled")
+        super().__init__(coordinator, f"weekday_{day.value}_enabled", entity_category=EntityCategory.CONFIG)
         self._day = day
 
     @property
@@ -53,7 +54,7 @@ class OnetimeEnabledSwitch(WeckerEntity, SwitchEntity):
     _attr_icon = "mdi:alarm"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "onetime_enabled")
+        super().__init__(coordinator, "onetime_enabled", entity_category=EntityCategory.CONFIG)
 
     @property
     def is_on(self) -> bool:

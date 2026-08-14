@@ -7,6 +7,7 @@ from datetime import datetime
 from homeassistant.components.datetime import DateTimeEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -28,7 +29,7 @@ class OnetimeDatetimeEntity(WeckerEntity, DateTimeEntity):
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "onetime_datetime")
+        super().__init__(coordinator, "onetime_datetime", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> datetime | None:

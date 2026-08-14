@@ -52,7 +52,7 @@ On first start, the integration also automatically copies the voice commands to 
 
 ## Manual verification (Phase 1)
 
-- After creating a device, all entities (weekday switches/times, one-time alarm, snooze duration, volume, `Ringing`/`Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - `Test ring` is under "Configuration", `Snooze`/`Stop` under the regular controls.
+- After creating a device, all entities (weekday switches/times, one-time alarm, snooze duration, volume, `Ringing`/`Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - the three buttons are under "Controls", everything else configurable (weekday switches/times, one-time alarm, snooze duration, volume) is under "Configuration".
 - Set different times for multiple weekdays and enable them → `sensor.<device>_next_alarm` shows the correct, nearest individual appointment.
 - Press `button.<device>_test_ring` → the configured media player plays, the configured light turns on, `binary_sensor.<device>_ringing` = on.
 - `button.<device>_snooze` (or service `wecker.snooze`) → playback stops, `binary_sensor.<device>_snoozed` = on, it rings again after the snooze duration.

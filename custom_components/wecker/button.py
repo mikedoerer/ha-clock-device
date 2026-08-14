@@ -1,9 +1,8 @@
 """Button entities for the Wecker integration.
 
 Snooze and Stop mirror the `wecker.snooze`/`wecker.stop` services as
-buttons for convenient in-app/dashboard use. Test ring is a setup/testing
-aid, not a daily-use control, so it's filed under the Configuration
-category to keep it out of the way of Snooze/Stop on the device page.
+buttons for convenient in-app/dashboard use. All three buttons live under
+Controls on the device page.
 """
 
 from __future__ import annotations
@@ -11,7 +10,6 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -64,7 +62,7 @@ class TestRingButton(WeckerEntity, ButtonEntity):
     _attr_icon = "mdi:bell-alert"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "test_ring", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, "test_ring")
 
     async def async_press(self) -> None:
         await self.coordinator.async_start_ringing()
