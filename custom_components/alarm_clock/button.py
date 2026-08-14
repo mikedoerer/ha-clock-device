@@ -38,7 +38,7 @@ class SnoozeButton(AlarmClockEntity, ButtonEntity):
     _attr_icon = "mdi:alarm-snooze"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "snooze")
+        super().__init__(coordinator, "snooze", "button")
 
     async def async_press(self) -> None:
         await self.coordinator.async_snooze()
@@ -50,7 +50,7 @@ class StopButton(AlarmClockEntity, ButtonEntity):
     _attr_icon = "mdi:alarm-light-off"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "stop")
+        super().__init__(coordinator, "stop", "button")
 
     async def async_press(self) -> None:
         await self.coordinator.async_stop()
@@ -62,7 +62,7 @@ class TestRingButton(AlarmClockEntity, ButtonEntity):
     _attr_icon = "mdi:bell-alert"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "test_ring")
+        super().__init__(coordinator, "test_ring", "button")
 
     async def async_press(self) -> None:
         await self.coordinator.async_start_ringing()

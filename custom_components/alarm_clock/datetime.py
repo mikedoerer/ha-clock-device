@@ -29,7 +29,7 @@ class OnetimeDatetimeEntity(AlarmClockEntity, DateTimeEntity):
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "onetime_datetime", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, "onetime_datetime", "datetime", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> datetime | None:

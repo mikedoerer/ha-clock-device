@@ -35,7 +35,7 @@ class SnoozeDurationNumber(AlarmClockEntity, NumberEntity):
     _attr_mode = NumberMode.BOX
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "snooze_duration", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, "snooze_duration", "number", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> float:
@@ -55,7 +55,7 @@ class VolumeNumber(AlarmClockEntity, NumberEntity):
     _attr_mode = NumberMode.SLIDER
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "volume", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, "volume", "number", entity_category=EntityCategory.CONFIG)
 
     @property
     def native_value(self) -> float:

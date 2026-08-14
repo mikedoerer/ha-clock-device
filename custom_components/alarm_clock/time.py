@@ -31,7 +31,7 @@ class WeekdayTimeEntity(AlarmClockEntity, TimeEntity):
     _attr_icon = "mdi:clock-outline"
 
     def __init__(self, coordinator: AlarmClockCoordinator, day: Weekday) -> None:
-        super().__init__(coordinator, f"weekday_{day.value}_time", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, f"weekday_{day.value}_time", "time", entity_category=EntityCategory.CONFIG)
         self._day = day
 
     @property

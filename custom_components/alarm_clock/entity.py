@@ -30,6 +30,7 @@ class AlarmClockEntity(Entity):
         self,
         coordinator: AlarmClockCoordinator,
         key: str,
+        domain: str,
         entity_category: EntityCategory | None = None,
     ) -> None:
         self.coordinator = coordinator
@@ -37,10 +38,13 @@ class AlarmClockEntity(Entity):
         self._attr_unique_id = f"{coordinator.subentry_id}_{key}"
         self._attr_translation_key = key
         self._attr_entity_category = entity_category
-        # Explicit (English, key-based) suggested_object_id - otherwise HA
-        # would slugify the *translated* name, making the entity_id depend
-        # on the active language instead of staying stable and English.
-        self._attr_suggested_object_id = slugify(f"{coordinator.name}_{key}")
+        # Explicit (English, key-based) entity_id - has_entity_name entities
+        # otherwise derive it from the *translated* display name, making the
+        # entity_id depend on the active language instead of staying stable
+        # and English. Setting entity_id directly (rather than relying on
+        # suggested_object_id, which has_entity_name entities ignore) skips
+        # that derivation entirely.
+        self.entity_id = f"{domain}.{slugify(f'{coordinator.name}_{key}')}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.subentry_id)},
             name=coordinator.name,

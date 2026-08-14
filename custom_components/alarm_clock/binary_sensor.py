@@ -30,7 +30,7 @@ class RingingBinarySensor(AlarmClockEntity, BinarySensorEntity):
     _attr_icon = "mdi:bell-ring"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "ringing")
+        super().__init__(coordinator, "ringing", "binary_sensor")
 
     @property
     def is_on(self) -> bool:
@@ -43,7 +43,7 @@ class SnoozedBinarySensor(AlarmClockEntity, BinarySensorEntity):
     _attr_icon = "mdi:alarm-snooze"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "snoozed")
+        super().__init__(coordinator, "snoozed", "binary_sensor")
 
     @property
     def is_on(self) -> bool:

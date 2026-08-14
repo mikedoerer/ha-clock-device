@@ -34,7 +34,7 @@ class WeekdayEnabledSwitch(AlarmClockEntity, SwitchEntity):
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: AlarmClockCoordinator, day: Weekday) -> None:
-        super().__init__(coordinator, f"weekday_{day.value}_enabled", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, f"weekday_{day.value}_enabled", "switch", entity_category=EntityCategory.CONFIG)
         self._day = day
 
     @property
@@ -54,7 +54,7 @@ class OnetimeEnabledSwitch(AlarmClockEntity, SwitchEntity):
     _attr_icon = "mdi:alarm"
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "onetime_enabled", entity_category=EntityCategory.CONFIG)
+        super().__init__(coordinator, "onetime_enabled", "switch", entity_category=EntityCategory.CONFIG)
 
     @property
     def is_on(self) -> bool:

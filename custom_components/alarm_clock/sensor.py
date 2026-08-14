@@ -29,7 +29,7 @@ class NextTriggerSensor(AlarmClockEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def __init__(self, coordinator: AlarmClockCoordinator) -> None:
-        super().__init__(coordinator, "next_trigger")
+        super().__init__(coordinator, "next_trigger", "sensor")
 
     @property
     def native_value(self) -> datetime | None:
