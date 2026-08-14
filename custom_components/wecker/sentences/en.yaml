@@ -67,21 +67,21 @@ intents:
   WeckerSetRecurring:
     data:
       - sentences:
-          - "set the alarm for [every ]{wecker_weekday} to {0..23:hour} [{0..59:minute}]"
-          - "set alarm for [every ]{wecker_weekday} to {0..23:hour} [{0..59:minute}]"
-          - "set the alarm for every {wecker_weekday:wecker_weekday_from} through {wecker_weekday:wecker_weekday_to} to {0..23:hour} [{0..59:minute}]"
-          - "set alarm for every {wecker_weekday:wecker_weekday_from} through {wecker_weekday:wecker_weekday_to} to {0..23:hour} [{0..59:minute}]"
+          - "set the alarm for [every ]{wecker_weekday} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set alarm for [every ]{wecker_weekday} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for every {wecker_weekday:wecker_weekday_from} through {wecker_weekday:wecker_weekday_to} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set alarm for every {wecker_weekday:wecker_weekday_from} through {wecker_weekday:wecker_weekday_to} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
   WeckerSetOnetime:
     data:
       - sentences:
-          - "set the alarm at {0..23:hour} [{0..59:minute}]"
-          - "set an alarm at {0..23:hour} [{0..59:minute}]"
-          - "set the alarm for {wecker_relative_day} at {0..23:hour} [{0..59:minute}]"
-          - "set a one time alarm for {wecker_relative_day} at {0..23:hour} [{0..59:minute}]"
-          - "set the alarm for {wecker_weekday} at {0..23:hour} [{0..59:minute}]"
-          - "set a one time alarm for {wecker_weekday} at {0..23:hour} [{0..59:minute}]"
-          - "set the alarm for the {1..31:day}[st|nd|rd|th] of {wecker_month} at {0..23:hour} [{0..59:minute}]"
-          - "set a one time alarm for the {1..31:day}[st|nd|rd|th] of {wecker_month} at {0..23:hour} [{0..59:minute}]"
+          - "set the alarm at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set an alarm at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for {wecker_relative_day} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for {wecker_relative_day} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for {wecker_weekday} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for {wecker_weekday} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for the {1..31:day}[st|nd|rd|th] of {wecker_month} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for the {1..31:day}[st|nd|rd|th] of {wecker_month} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
   WeckerDeleteRecurring:
     data:
       - sentences:
