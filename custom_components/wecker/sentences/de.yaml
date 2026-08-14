@@ -101,25 +101,26 @@ intents:
   WeckerSetRecurring:
     data:
       - sentences:
-          - "wecker [jeden ]{wecker_weekday} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für [jeden ]{wecker_weekday} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {wecker_weekday_bare_recurring:wecker_weekday} ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "wecker jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker [jeden ]{wecker_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für [jeden ]{wecker_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {wecker_weekday_bare_recurring:wecker_weekday} [um ]({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für {wecker_weekday_bare_recurring:wecker_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker jeden {wecker_weekday:wecker_weekday_from} bis {wecker_weekday:wecker_weekday_to} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
   WeckerSetOnetime:
     data:
       - sentences:
-          - "wecker ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "wecker um ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {wecker_relative_day} um ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker {wecker_relative_day} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {wecker_weekday} um ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für {wecker_weekday} um ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {wecker_weekday_bare:wecker_weekday} ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "wecker am {1..31:day}[.] {wecker_month} um ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für den {1..31:day}[.] {wecker_month} auf ({0..23:hour} uhr [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {wecker_relative_day} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker {wecker_relative_day} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {wecker_weekday_bare:wecker_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für {wecker_weekday_bare:wecker_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {wecker_weekday_bare:wecker_weekday} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker am {1..31:day}[.] {wecker_month} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für den {1..31:day}[.] {wecker_month} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
   WeckerDeleteRecurring:
     data:
       - sentences:
