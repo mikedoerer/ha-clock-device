@@ -9,7 +9,7 @@ After installation, set up the integration once under *Settings → Devices & se
 - configurable input device (Assist satellite, e.g. HA Voice PE)
 - output device + alarm sound in **one** step via "browse media" (the device you pick the sound on doubles as the output device - no separate device selection) plus separately adjustable volume
 - optional light (any `light` entity) with configured color/brightness while ringing - always turns off when stopped (no state restore)
-- snooze via voice, button entity, or Voice PE button ([blueprint](blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml))
+- snooze via voice, button entity, or Voice PE button ([blueprint](blueprints/automation/alarm_clock/voice_pe_snooze_button.yaml))
 - stop via voice or button entity
 
 ## Status
@@ -93,7 +93,7 @@ Triggers `alarm_clock.snooze` on the selected alarm clock device whenever a butt
 
 Requires **Home Assistant 2026.1 or newer** (introduced the `event.received` trigger this uses).
 
-1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml`](blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/alarm-clock/`). Note: when importing by URL, Home Assistant names the local folder after the GitHub username (`mikedoerer`), not after the repository or integration - that's how HA's blueprint importer always works and isn't something this repo's layout can influence; rename the local folder afterward if you'd rather it read differently.
+1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/alarm_clock/voice_pe_snooze_button.yaml`](blueprints/automation/alarm_clock/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/alarm_clock/`). Note: when importing by URL, Home Assistant names the local folder after the GitHub username (`mikedoerer`), not after the repository or integration - that's how HA's blueprint importer always works and isn't something this repo's layout can influence; rename the local folder afterward if you'd rather it read differently.
 2. Create an automation from the blueprint, select the button event entity and alarm clock device. The preset event types (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) match the Voice PE - adjust as needed for other buttons.
 
 Deliberately snooze-only, no stop blueprint - use voice control or the `Stop` button entity to stop.
