@@ -50,6 +50,8 @@ INTENT_SNOOZE = "WeckerSnooze"
 INTENT_STOP = "WeckerStop"
 INTENT_SET_RECURRING = "WeckerSetRecurring"
 INTENT_SET_ONETIME = "WeckerSetOnetime"
+INTENT_DELETE_RECURRING = "WeckerDeleteRecurring"
+INTENT_DELETE_ONETIME = "WeckerDeleteOnetime"
 
 
 def signal_update(subentry_id: str) -> str:

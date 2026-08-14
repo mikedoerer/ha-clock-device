@@ -1,91 +1,102 @@
 # Wecker
 
-HACS-Integration für Home Assistant: virtuelle, sprachgesteuerte Wecker.
+HACS integration for Home Assistant: virtual, voice-controlled alarm clocks.
 
-Nach der Installation legst du unter *Einstellungen → Geräte & Dienste → Integration hinzufügen → Wecker* einmal die Integration an. Danach fügst du auf der Integrationsseite beliebig viele **virtuelle Wecker-Geräte** hinzu ("+ Gerät hinzufügen"). Jedes Gerät ist ein vollständiger, unabhängiger Wecker mit:
+After installation, set up the integration once under *Settings → Devices & services → Add integration → Wecker*. Then add as many **virtual alarm clock devices** as you like from the integration's page ("+ Add device"). Each device is a complete, independent alarm clock with:
 
-- wiederkehrendem Alarm - jeder Wochentag einzeln schaltbar, mit **eigener** Uhrzeit je Wochentag
-- einmaligem Alarm (Datum + Uhrzeit), unabhängig vom wiederkehrenden Alarm
-- konfigurierbarem Eingabegerät (Assist-Satellit, z.B. HA Voice PE)
-- Ausgabegerät + Wecker-Sound in **einem** Schritt per "Medien durchsuchen"-Auswahl (das Gerät, auf dem du den Sound aussuchst, ist zugleich das Ausgabegerät - keine doppelte Geräteauswahl) plus separat einstellbarer Lautstärke
-- optionalem Licht (beliebige `light`-Entität) mit konfigurierter Farbe/Helligkeit beim Klingeln - geht beim Beenden immer aus (kein Zustands-Restore)
-- Schlummern per Sprache, Button-Entity oder Voice-PE-Taste ([Blueprint](blueprints/automation/wecker/voice_pe_snooze_button.yaml))
-- Beenden per Sprache oder Button-Entity
+- recurring alarm - each weekday individually switchable, with its **own** time per weekday
+- one-time alarm (date + time), independent of the recurring alarm
+- configurable input device (Assist satellite, e.g. HA Voice PE)
+- output device + alarm sound in **one** step via "browse media" (the device you pick the sound on doubles as the output device - no separate device selection) plus separately adjustable volume
+- optional light (any `light` entity) with configured color/brightness while ringing - always turns off when stopped (no state restore)
+- snooze via voice, button entity, or Voice PE button ([blueprint](blueprints/automation/wecker/voice_pe_snooze_button.yaml))
+- stop via voice or button entity
 
 ## Status
 
-**Phase 1** ✅ fertig und live gegen eine echte Home-Assistant-Instanz verifiziert (HACS-Install, Config-Flow, Subentry-Gerät mit allen 21 Entities, Scheduling-Berechnung, echter Klingel-/Snooze-/Stop-Durchlauf inkl. Licht-Restore, keine Fehler im Log).
+**Phase 1** ✅ done and verified live against a real Home Assistant instance (HACS install, config flow, subentry device with all 21 entities, scheduling calculation, real ring/snooze/stop cycle including light restore, no errors in the log).
 
-**Phase 2** ✅ Sprachsteuerung: Schlummern/Beenden sowie Wochentags- und einmaligen Wecker per Sprache stellen (siehe unten).
+**Phase 2** ✅ Voice control: snooze/stop, plus setting weekday and one-time alarms by voice (see below).
 
-**Phase 3** ✅ Blueprint für Button-Snooze (siehe unten) - z.B. für die Center-Taste einer Home Assistant Voice PE.
+**Phase 3** ✅ Blueprint for button snooze (see below) - e.g. for the center button of a Home Assistant Voice PE.
 
-**Phase 4** ✅ HACS-Feinschliff (diese Installationsanleitung) und CI ([`validate.yml`](.github/workflows/validate.yml) prüft `hassfest` + HACS-Anforderungen bei jedem Push/PR).
+**Phase 4** ✅ HACS polish (this installation guide) and CI ([`validate.yml`](.github/workflows/validate.yml) checks `hassfest` + HACS requirements on every push/PR).
 
-## Sprachsteuerung
+## Voice control
 
-Standardmäßig funktionieren folgende Sätze (Deutsch und Englisch, siehe [`custom_components/wecker/sentences/`](custom_components/wecker/sentences/)):
+The following sentences work out of the box (German and English, see [`custom_components/wecker/sentences/`](custom_components/wecker/sentences/)):
 
-- Schlummern: "schlummern", "wecker schlummern" / "snooze", "snooze the alarm"
-- Beenden: "wecker beenden", "wecker aus", "wecker stoppen" / "stop the alarm", "turn off the alarm"
-- Wochentag stellen (aktiviert den Tag automatisch mit): "wecker montags auf sieben uhr stellen", "stelle den wecker für montag auf sieben uhr dreißig", "wecker jeden tag auf sieben uhr stellen" / "set the alarm for monday to 7", "set alarm for monday to 7 30"
-- Einmaligen Wecker stellen: "wecker heute um zweiundzwanzig uhr stellen", "stelle den wecker morgen auf sieben uhr" / "set the alarm for tomorrow at 7", "set a one time alarm for today at 22"
+- Snooze: "schlummern", "wecker schlummern" / "snooze", "snooze the alarm"
+- Stop: "wecker beenden", "wecker aus", "wecker stoppen" / "stop the alarm", "turn off the alarm"
+- Set weekday(s) (activates the day(s) automatically): "wecker montags auf sieben uhr stellen", "stelle den wecker für montag auf sieben uhr dreißig", "wecker jeden tag auf sieben uhr stellen", "wecker jeden montag bis mittwoch auf sieben uhr stellen" / "set the alarm for monday to 7", "set alarm for monday to 7 30", "set the alarm for every monday through wednesday to 7"
+- Set one-time alarm: "wecker sieben uhr stellen" (no date → next possible time: today if the time hasn't passed yet, otherwise tomorrow), "wecker heute um zweiundzwanzig uhr stellen", "stelle den wecker morgen auf sieben uhr", "wecker montag um sieben uhr stellen" (next Monday), "wecker am 15. august um sieben uhr stellen" (next occurrence of that date, otherwise next year) / "set the alarm at 7" (no date → next possible time), "set the alarm for tomorrow at 7", "set a one time alarm for today at 22", "set the alarm for monday at 7", "set the alarm for the 15th of august at 7"
+- Delete weekday(s) (disables, time is kept): "wecker montag löschen", "wecker jeden montag bis mittwoch löschen", "lösche den wecker für montag" / "delete the alarm for monday", "delete the alarm for every monday through wednesday"
+- Delete one-time alarm: "wecker löschen", "lösche den wecker" / "delete the alarm", "delete alarm"
 
-Die Integration kopiert diese Sätze bei jedem Setup nach `config/custom_sentences/<sprache>/wecker.yaml` (HA lädt Satzdateien nur aus diesem Verzeichnis - eigene Integrationen können sie nicht automatisch mitliefern), überschreibt dabei aber nur eine Datei, deren Inhalt noch exakt dem entspricht, was sie selbst zuletzt dorthin geschrieben hat. Eigene Anpassungen oder ein Löschen der Datei (um die Sprachsteuerung abzuschalten) bleiben damit dauerhaft erhalten - auch über Integrations-Updates hinweg -, während echte Änderungen an den mitgelieferten Sätzen (wie die Wochentags-/Einmal-Befehle in dieser Version) trotzdem ankommen, solange die Datei seit der letzten Installation unangetastet war.
+The integration copies these sentences into `config/custom_sentences/<language>/wecker.yaml` on every setup (HA only loads sentence files from that directory - a custom integration can't ship them so they're picked up automatically), but only ever overwrites a file whose content still matches exactly what it last wrote there itself. Your own edits, or deleting the file (to disable voice control), are therefore preserved permanently - even across integration updates - while genuine changes to the bundled sentences (like the weekday/one-time/delete commands in this version) still land, as long as the file hasn't been touched since the last install.
 
-Welches Gerät reagiert, wird über die `satellite_id` des Sprachbefehls bestimmt: Zuerst wird nach einem Wecker gesucht, dessen konfiguriertes Eingabegerät (Assist-Satellit) genau das ist, das den Befehl empfangen hat. Für Schlummern/Beenden wird sonst der einzige gerade klingelnde/schlummernde Wecker genommen; für die Wochentags-/Einmal-Befehle gibt es kein "klingelt gerade" als Anker, deshalb stattdessen der einzige überhaupt konfigurierte Wecker. Bleibt es in beiden Fällen mehrdeutig oder gibt es keinen passenden Wecker, kommt eine gesprochene Fehlermeldung statt einer Vermutung.
+Which device responds is determined by the voice command's `satellite_id`: first, it looks for an alarm clock whose configured input device (Assist satellite) is exactly the one that received the command. For snooze/stop, it otherwise falls back to the single alarm clock currently ringing/snoozed; for the weekday/one-time/delete commands there's no "currently ringing" anchor, so it falls back to the single configured alarm clock instead. If it's still ambiguous in either case, or there's no matching alarm clock, a spoken error message is given instead of a guess.
 
 ## Installation
 
-Noch nicht im offiziellen HACS-Store gelistet - als HACS-"Custom Repository" hinzufügen:
+Not yet listed in the official HACS store - add it as a HACS "custom repository":
 
-1. In HACS → *Integrationen* → oben rechts *⋮* → *Benutzerdefinierte Repositories* → diese GitHub-URL mit Kategorie "Integration" eintragen (alternativ `custom_components/wecker/` manuell nach `config/custom_components/` kopieren).
-2. "Wecker" über HACS installieren.
-3. Home Assistant neu starten.
-4. *Einstellungen → Geräte & Dienste → Integration hinzufügen → "Wecker"* - legt die Integration einmalig an (ohne Konfigurationsdialog).
-5. Auf der neuen Integrationsseite über "+ Gerät hinzufügen" ein virtuelles Wecker-Gerät als Subentry anlegen und konfigurieren (Wochentage/Uhrzeiten, Ausgabegerät + Sound, optional Licht und Eingabegerät). Beliebig oft wiederholen für weitere Wecker.
+1. In HACS → *Integrations* → top-right *⋮* → *Custom repositories* → enter this GitHub URL with category "Integration" (alternatively, copy `custom_components/wecker/` manually to `config/custom_components/`).
+2. Install "Wecker" via HACS.
+3. Restart Home Assistant.
+4. *Settings → Devices & services → Add integration → "Wecker"* - sets up the integration once (no configuration dialog).
+5. On the new integration page, use "+ Add device" to create and configure a virtual alarm clock device as a subentry (weekdays/times, output device + sound, optionally light and input device). Repeat as often as you like for more alarm clocks.
 
-Beim ersten Start kopiert die Integration außerdem automatisch die Sprachbefehle nach `config/custom_sentences/` (siehe [Sprachsteuerung](#sprachsteuerung)) - dafür ist kein weiterer Schritt nötig. Für Schlummern per Hardware-Taste (z.B. Home Assistant Voice PE) den [Button-Snooze-Blueprint](#button-snooze-blueprint-phase-3) separat importieren.
+On first start, the integration also automatically copies the voice commands to `config/custom_sentences/` (see [Voice control](#voice-control)) - no further step needed. For snooze via a hardware button (e.g. Home Assistant Voice PE), import the [button snooze blueprint](#button-snooze-blueprint-phase-3) separately.
 
-## Manuelle Verifikation (Phase 1)
+## Manual verification (Phase 1)
 
-- Nach dem Anlegen eines Geräts erscheinen alle Entities (Wochentag-Switches/-Uhrzeiten, einmaliger Wecker, Snooze-Dauer, Lautstärke, `Klingelt`/`Schlummert`, `Nächster Alarm`, Buttons `Schlummern`/`Wecker beenden`/`Testklingeln`) auf der Geräteseite - `Testklingeln` liegt unter "Konfiguration", `Schlummern`/`Wecker beenden` unter den normalen Steuerelementen.
-- Für mehrere Wochentage unterschiedliche Uhrzeiten setzen und aktivieren → `sensor.<gerät>_nachster_alarm` zeigt den korrekten, nächsten individuellen Termin.
-- `button.<gerät>_testklingeln` drücken → konfigurierter Media Player spielt, konfiguriertes Licht geht an, `binary_sensor.<gerät>_klingelt` = an.
-- `button.<gerät>_schlummern` (oder Service `wecker.snooze`) → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, nach der Schlummerdauer klingelt es erneut.
-- `button.<gerät>_wecker_beenden` (oder Service `wecker.stop`) → alles zurück auf Ruhezustand, konfiguriertes Licht geht aus.
-- HA neu starten → alle Einstellungen (Uhrzeiten, Wochentage, scharf/unscharf) bleiben erhalten.
+- After creating a device, all entities (weekday switches/times, one-time alarm, snooze duration, volume, `Ringing`/`Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - `Test ring` is under "Configuration", `Snooze`/`Stop` under the regular controls.
+- Set different times for multiple weekdays and enable them → `sensor.<device>_next_alarm` shows the correct, nearest individual appointment.
+- Press `button.<device>_test_ring` → the configured media player plays, the configured light turns on, `binary_sensor.<device>_ringing` = on.
+- `button.<device>_snooze` (or service `wecker.snooze`) → playback stops, `binary_sensor.<device>_snoozed` = on, it rings again after the snooze duration.
+- `button.<device>_stop` (or service `wecker.stop`) → everything back to idle, the configured light turns off.
+- Restart HA → all settings (times, weekdays, armed/disarmed) are preserved.
 
-## Manuelle Verifikation (Phase 2)
+## Manual verification (Phase 2)
 
-- Nach dem ersten Setup existieren `config/custom_sentences/de/wecker.yaml` und `.../en/wecker.yaml`, im Log steht dazu ein Info-Log ("Sprachbefehle nach ... installiert").
-- Testklingeln auslösen, dann am konfigurierten Assist-Satelliten "schlummern" sagen → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an, Satellit spricht eine Bestätigung.
-- Erneut klingeln lassen, "wecker beenden" sagen → Ruhezustand, Licht aus, Bestätigung.
-- Genau ein Wecker klingelt, Befehl über *Entwicklerwerkzeuge → Aktionen → `conversation.process`* ohne zugeordneten Satelliten → derselbe Wecker reagiert trotzdem (Fallback).
-- Kein Wecker klingelt, "schlummern" sagen → gesprochene Fehlermeldung, kein Fehler im Log.
-- Zwei Wecker klingeln gleichzeitig, Befehl über einen nicht zugeordneten Satelliten → gesprochene Mehrdeutigkeits-Fehlermeldung.
-- "wecker montags auf sieben uhr stellen" → Montag-Switch geht an, Montag-Uhrzeit zeigt 07:00, gesprochene Bestätigung nennt Gerät/Tag/Uhrzeit.
-- "wecker montags auf sieben uhr dreißig stellen" → 07:30 statt 07:00.
-- "wecker jeden tag auf sieben uhr stellen" → alle sieben Wochentag-Switches an, alle Zeiten 07:00.
-- "wecker heute um `<Uhrzeit nach jetzt>` uhr stellen" → "Einmaliger Wecker"-Datetime zeigt heutiges Datum, "Einmaliger Wecker aktiv"-Switch an.
-- "wecker heute um `<Uhrzeit, die gerade eben schon vorbei ist>` uhr stellen" → springt auf morgen, Bestätigung sagt "morgen" statt "heute".
-- "wecker morgen um sieben uhr stellen" → morgiges Datum, 07:00.
-- Integration erneut installieren (z.B. Update) → `config/custom_sentences/de/wecker.yaml` wird automatisch aktualisiert (neues Info-Log), solange die Datei seit der letzten Installation unverändert war.
-- Datei `config/custom_sentences/de/wecker.yaml` manuell bearbeiten oder löschen, dann HA neu starten → Datei bleibt unangetastet bzw. gelöscht, wird nicht wiederhergestellt.
+- After the first setup, `config/custom_sentences/de/wecker.yaml` and `.../en/wecker.yaml` exist, with an info log about it ("Sprachbefehle nach ... installiert").
+- Trigger test ring, then say "schlummern" on the configured Assist satellite → playback stops, `binary_sensor.<device>_snoozed` = on, the satellite speaks a confirmation.
+- Let it ring again, say "wecker beenden" → idle, light off, confirmation.
+- Exactly one alarm clock is ringing, command issued via *Developer tools → Actions → `conversation.process`* without an associated satellite → the same alarm clock still responds (fallback).
+- No alarm clock is ringing, say "schlummern" → spoken error message, no error in the log.
+- Two alarm clocks ring simultaneously, command issued via an unassociated satellite → spoken ambiguity error message.
+- "wecker montags auf sieben uhr stellen" → the Monday switch turns on, the Monday time shows 07:00, the spoken confirmation names device/day/time.
+- "wecker montags auf sieben uhr dreißig stellen" → 07:30 instead of 07:00.
+- "wecker jeden tag auf sieben uhr stellen" → all seven weekday switches turn on, all times 07:00.
+- "wecker heute um `<time after now>` uhr stellen" → the "One-time alarm" datetime shows today's date, the "One-time alarm active" switch turns on.
+- "wecker heute um `<time that has already just passed>` uhr stellen" → jumps to tomorrow, the confirmation says "morgen" instead of "heute".
+- "wecker morgen um sieben uhr stellen" → tomorrow's date, 07:00.
+- "wecker jeden montag bis mittwoch auf sieben uhr stellen" → the Monday, Tuesday, and Wednesday switches turn on, all times 07:00, the confirmation names "Montag bis Mittwoch".
+- "wecker `<time after now>` uhr stellen" (without "um", without a day) → the "One-time alarm" datetime shows today's date.
+- "wecker `<time that has already just passed>` uhr stellen" (without a day) → jumps to tomorrow, the confirmation says "morgen".
+- "wecker montag um sieben uhr stellen" → the "One-time alarm" datetime shows the date of next Monday, not the recurring Monday switch.
+- "wecker am 15. august um sieben uhr stellen" → the "One-time alarm" datetime shows August 15th (this year or next, depending on whether the date has already passed).
+- "wecker am 30. februar um sieben uhr stellen" (invalid date) → spoken error message, no error in the log.
+- "wecker montag löschen" → the Monday switch turns off, the Monday time stays unchanged, the confirmation names device/day.
+- "wecker jeden montag bis mittwoch löschen" → the Monday, Tuesday, and Wednesday switches turn off.
+- "wecker löschen" (without a day) → the "One-time alarm active" switch turns off, the stored date stays unchanged.
+- Reinstall the integration (e.g. update) → `config/custom_sentences/de/wecker.yaml` is automatically updated (new info log), as long as the file hasn't changed since the last install.
+- Manually edit or delete the file `config/custom_sentences/de/wecker.yaml`, then restart HA → the file stays untouched or deleted, respectively - it's not recreated.
 
-## Button-Snooze-Blueprint (Phase 3)
+## Button snooze blueprint (Phase 3)
 
-Löst `wecker.snooze` am gewählten Wecker-Gerät aus, sobald eine Button-`event`-Entität (z.B. `event.<gerät>_button_press` einer Home Assistant Voice PE) einen der konfigurierten Event-Typen meldet.
+Triggers `wecker.snooze` on the selected alarm clock device whenever a button `event` entity (e.g. `event.<device>_button_press` of a Home Assistant Voice PE) reports one of the configured event types.
 
-Erfordert **Home Assistant 2026.1 oder neuer** (führte den dafür genutzten `event.received`-Trigger ein).
+Requires **Home Assistant 2026.1 or newer** (introduced the `event.received` trigger this uses).
 
-1. *Einstellungen → Automatisierungen & Szenen → Blueprints → Blueprint importieren* und die Rohdatei-URL von [`blueprints/automation/wecker/voice_pe_snooze_button.yaml`](blueprints/automation/wecker/voice_pe_snooze_button.yaml) angeben (oder die Datei manuell nach `config/blueprints/automation/wecker/` kopieren).
-2. Aus dem Blueprint eine Automatisierung anlegen, Button-Event-Entität und Wecker-Gerät auswählen. Die vorbelegten Event-Typen (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) passen zur Voice PE - bei anderen Buttons ggf. anpassen.
+1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/wecker/voice_pe_snooze_button.yaml`](blueprints/automation/wecker/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/wecker/`).
+2. Create an automation from the blueprint, select the button event entity and alarm clock device. The preset event types (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) match the Voice PE - adjust as needed for other buttons.
 
-Bewusst nur Schlummern, kein Beenden-Blueprint - zum Beenden Sprachsteuerung oder die `Wecker beenden`-Button-Entity nutzen.
+Deliberately snooze-only, no stop blueprint - use voice control or the `Stop` button entity to stop.
 
-### Manuelle Verifikation (Phase 3)
+### Manual verification (Phase 3)
 
-- Testklingeln auslösen, dann am Voice-PE-Button z.B. zweimal drücken (`double_press`) → Wiedergabe stoppt, `binary_sensor.<gerät>_schlummert` = an.
-- Erneut klingeln lassen, direkt zweimal hintereinander denselben Press-Typ auslösen (z.B. zwei `long_press` nacheinander) → beide Male löst die Automatisierung aus (kein "hängenbleiben" wie bei einem naiven `state`-Trigger mit Attribut-Filter).
-- Press-Typ auslösen, der nicht in den konfigurierten Event-Typen enthalten ist → keine Reaktion.
+- Trigger test ring, then e.g. double-press the Voice PE button (`double_press`) → playback stops, `binary_sensor.<device>_snoozed` = on.
+- Let it ring again, trigger the same press type twice in a row right away (e.g. two `long_press` in a row) → the automation fires both times (no "getting stuck" like with a naive `state` trigger with an attribute filter).
+- Trigger a press type that's not among the configured event types → no reaction.

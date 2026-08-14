@@ -14,10 +14,11 @@ without requiring a full Home Assistant restart.
 Snooze/Stop ("schlummern"/"wecker beenden") only make sense while an alarm
 is ringing/snoozed, so their device resolution falls back to "the single
 alarm clock currently ringing/snoozed" when the satellite doesn't resolve
-one. Setting a schedule (WeckerSetRecurring/WeckerSetOnetime) has no such
-"currently active" anchor, so it falls back to "the single configured alarm
-clock" instead - with multiple devices and no satellite match, it asks for
-clarification rather than guessing either way.
+one. Setting or deleting a schedule (WeckerSetRecurring/WeckerSetOnetime/
+WeckerDeleteRecurring/WeckerDeleteOnetime) has no such "currently active"
+anchor, so it falls back to "the single configured alarm clock" instead -
+with multiple devices and no satellite match, it asks for clarification
+rather than guessing either way.
 """
 
 from __future__ import annotations
@@ -35,6 +36,8 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_INPUT_SATELLITE_ENTITY_ID,
     DOMAIN,
+    INTENT_DELETE_ONETIME,
+    INTENT_DELETE_RECURRING,
     INTENT_SET_ONETIME,
     INTENT_SET_RECURRING,
     INTENT_SNOOZE,
@@ -279,6 +282,80 @@ _WEEKDAY_NAMES = {
     },
 }
 
+_MONTH_NAMES = {
+    "de": {
+        1: "Januar", 2: "Februar", 3: "März", 4: "April", 5: "Mai", 6: "Juni",
+        7: "Juli", 8: "August", 9: "September", 10: "Oktober", 11: "November", 12: "Dezember",
+    },
+    "en": {
+        1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June",
+        7: "July", 8: "August", 9: "September", 10: "October", 11: "November", 12: "December",
+    },
+}
+
+_TEXT_INVALID_DATE = {
+    "de": "Dieses Datum gibt es nicht.",
+    "en": "That date doesn't exist.",
+}
+
+
+def _ordinal_en(day: int) -> str:
+    if 11 <= day % 100 <= 13:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _weekday_range(start: Weekday, end: Weekday) -> list[Weekday]:
+    """Weekdays from `start` to `end` inclusive, wrapping past Sunday if needed."""
+    start_index = WEEKDAY_ORDER.index(start)
+    end_index = WEEKDAY_ORDER.index(end)
+    length = (end_index - start_index) % 7 + 1
+    return [WEEKDAY_ORDER[(start_index + offset) % 7] for offset in range(length)]
+
+
+def _next_occurrence_for_date(
+    now: datetime, day: int, month: int, alarm_time: dt_time, language: str | None
+) -> datetime:
+    """Next future local datetime for day/month at alarm_time, rolling to next year if past."""
+    lang = (language or "de")[:2]
+    base = dt_util.start_of_local_day(now)
+    try:
+        candidate = base.replace(
+            month=month, day=day, hour=alarm_time.hour, minute=alarm_time.minute
+        )
+    except ValueError as err:
+        raise intent.IntentHandleError(_localized(_TEXT_INVALID_DATE, lang)) from err
+    if candidate <= now:
+        try:
+            candidate = candidate.replace(year=candidate.year + 1)
+        except ValueError as err:
+            raise intent.IntentHandleError(_localized(_TEXT_INVALID_DATE, lang)) from err
+    return candidate
+
+
+def _resolve_recurring_days(intent_obj: intent.Intent, lang: str) -> tuple[list[Weekday], str]:
+    """Resolve which weekdays a WeckerSetRecurring/WeckerDeleteRecurring sentence targets.
+
+    Returns the weekdays plus the speech text describing them ("Montag",
+    "Montag bis Mittwoch", "jeden Tag").
+    """
+    from_slot = intent_obj.slots.get("wecker_weekday_from")
+    if from_slot:
+        to_slot = intent_obj.slots["wecker_weekday_to"]
+        days = _weekday_range(Weekday(from_slot["value"]), Weekday(to_slot["value"]))
+        first = _WEEKDAY_NAMES[lang][days[0]]
+        last = _WEEKDAY_NAMES[lang][days[-1]]
+        when = f"{first} bis {last}" if lang == "de" else f"{first} through {last}"
+        return days, when
+
+    day_value = _slot_value(intent_obj, "wecker_weekday")  # "mon".."sun" or "all"
+    if day_value == "all":
+        return list(WEEKDAY_ORDER), ("jeden Tag" if lang == "de" else "every day")
+    day = Weekday(day_value)
+    return [day], _WEEKDAY_NAMES[lang][day]
+
 
 class WeckerSetRecurringIntentHandler(_WeckerScheduleIntentHandler):
     """Handles WeckerSetRecurring ("wecker montags auf 7 Uhr stellen" / "set alarm for monday to 7").
@@ -292,59 +369,126 @@ class WeckerSetRecurringIntentHandler(_WeckerScheduleIntentHandler):
     async def _async_apply(
         self, coordinator: AlarmClockCoordinator, intent_obj: intent.Intent
     ) -> str:
-        day_value = _slot_value(intent_obj, "wecker_weekday")  # "mon".."sun" or "all"
         alarm_time = _parse_time_slots(intent_obj)
         lang = (intent_obj.language or "de")[:2]
+        days, when = _resolve_recurring_days(intent_obj, lang)
 
-        days = list(WEEKDAY_ORDER) if day_value == "all" else [Weekday(day_value)]
         for day in days:
             await coordinator.async_set_weekday_time(day, alarm_time)
             await coordinator.async_set_weekday_enabled(day, True)
 
         time_str = f"{alarm_time.hour:02d}:{alarm_time.minute:02d}"
-        if day_value == "all":
-            when = "jeden Tag" if lang == "de" else "every day"
-        else:
-            when = _WEEKDAY_NAMES[lang][days[0]]
         if lang == "de":
             return f"{coordinator.name}: {when} um {time_str} Uhr."
         return f"{coordinator.name}: {when} at {time_str}."
 
 
+class WeckerDeleteRecurringIntentHandler(_WeckerScheduleIntentHandler):
+    """Handles WeckerDeleteRecurring ("wecker montag löschen" / "delete the alarm for monday").
+
+    Disarms the targeted weekday(s) without touching their configured time -
+    re-enabling later (via switch or a new WeckerSetRecurring command) keeps
+    the old time.
+    """
+
+    intent_type = INTENT_DELETE_RECURRING
+
+    async def _async_apply(
+        self, coordinator: AlarmClockCoordinator, intent_obj: intent.Intent
+    ) -> str:
+        lang = (intent_obj.language or "de")[:2]
+        days, when = _resolve_recurring_days(intent_obj, lang)
+
+        for day in days:
+            await coordinator.async_set_weekday_enabled(day, False)
+
+        if lang == "de":
+            return f"{coordinator.name}: {when} gelöscht."
+        return f"{coordinator.name}: {when} deleted."
+
+
 class WeckerSetOnetimeIntentHandler(_WeckerScheduleIntentHandler):
-    """Handles WeckerSetOnetime ("wecker heute um 22 Uhr stellen" / "set the alarm for tomorrow at 7")."""
+    """Handles WeckerSetOnetime.
+
+    Covers several ways of anchoring the one-time alarm's date, resolved from
+    whichever slot the matched sentence produced:
+    - no date slot at all ("wecker 7 uhr stellen") - next possible occurrence
+      of that time, i.e. today if it hasn't passed yet, else tomorrow.
+    - wecker_relative_day ("heute"/"morgen") - that day, rolling to the next
+      day if the time has already passed (heute -> morgen).
+    - wecker_weekday ("wecker montag um 7 uhr stellen") - the next occurrence
+      of that weekday (today counts if the time hasn't passed yet).
+    - day + wecker_month ("wecker am 15. august um 7 uhr stellen") - that
+      calendar date, rolling to next year if it's already passed this year.
+    """
 
     intent_type = INTENT_SET_ONETIME
 
     async def _async_apply(
         self, coordinator: AlarmClockCoordinator, intent_obj: intent.Intent
     ) -> str:
-        when_value = _slot_value(intent_obj, "wecker_relative_day")  # "today" | "tomorrow"
         alarm_time = _parse_time_slots(intent_obj)
         lang = (intent_obj.language or "de")[:2]
-
         now = dt_util.now()
-        days_ahead = 1 if when_value == "tomorrow" else 0
-        target = dt_util.start_of_local_day(now) + timedelta(days=days_ahead)
-        target = target.replace(
-            hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
-        )
-        if target <= now:
-            # "heute" at a time that's already passed today rolls to
-            # tomorrow - mirrors AlarmClockCoordinator._next_occurrence_for_weekday.
-            target += timedelta(days=1)
+
+        relative_slot = intent_obj.slots.get("wecker_relative_day")
+        weekday_slot = intent_obj.slots.get("wecker_weekday")
+        day_slot = intent_obj.slots.get("day")
+
+        if weekday_slot:
+            day = Weekday(weekday_slot["value"])
+            target = AlarmClockCoordinator._next_occurrence_for_weekday(now, day, alarm_time)
+            day_word = _WEEKDAY_NAMES[lang][day]
+        elif day_slot:
+            month = int(_slot_value(intent_obj, "wecker_month"))
+            target = _next_occurrence_for_date(now, int(day_slot["value"]), month, alarm_time, lang)
+            month_name = _MONTH_NAMES[lang][month]
+            day_word = (
+                f"am {target.day}. {month_name}"
+                if lang == "de"
+                else f"on {month_name} {_ordinal_en(target.day)}"
+            )
+        else:
+            # Either "heute"/"morgen" or no date slot at all (bare time) -
+            # both roll forward by one day if the resulting time has passed.
+            days_ahead = 1 if relative_slot and relative_slot["value"] == "tomorrow" else 0
+            target = dt_util.start_of_local_day(now) + timedelta(days=days_ahead)
+            target = target.replace(
+                hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
+            )
+            if target <= now:
+                target += timedelta(days=1)
+            if target.date() == now.date():
+                day_word = "heute" if lang == "de" else "today"
+            else:
+                day_word = "morgen" if lang == "de" else "tomorrow"
 
         await coordinator.async_set_onetime_datetime(target)
         await coordinator.async_set_onetime_enabled(True)
 
         time_str = f"{alarm_time.hour:02d}:{alarm_time.minute:02d}"
-        if target.date() == now.date():
-            day_word = "heute" if lang == "de" else "today"
-        else:
-            day_word = "morgen" if lang == "de" else "tomorrow"
         if lang == "de":
             return f"{coordinator.name}: {day_word} um {time_str} Uhr."
         return f"{coordinator.name}: {day_word} at {time_str}."
+
+
+class WeckerDeleteOnetimeIntentHandler(_WeckerScheduleIntentHandler):
+    """Handles WeckerDeleteOnetime ("wecker löschen" / "delete the alarm").
+
+    Always targets the one-time alarm - to delete a recurring weekday alarm,
+    the weekday must be named (WeckerDeleteRecurring).
+    """
+
+    intent_type = INTENT_DELETE_ONETIME
+
+    async def _async_apply(
+        self, coordinator: AlarmClockCoordinator, intent_obj: intent.Intent
+    ) -> str:
+        await coordinator.async_set_onetime_enabled(False)
+        lang = (intent_obj.language or "de")[:2]
+        if lang == "de":
+            return f"{coordinator.name}: einmaliger Wecker gelöscht."
+        return f"{coordinator.name}: one-time alarm deleted."
 
 
 async def async_setup_intents(hass: HomeAssistant) -> None:
@@ -354,6 +498,8 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
         intent.async_register(hass, WeckerStopIntentHandler())
         intent.async_register(hass, WeckerSetRecurringIntentHandler())
         intent.async_register(hass, WeckerSetOnetimeIntentHandler())
+        intent.async_register(hass, WeckerDeleteRecurringIntentHandler())
+        intent.async_register(hass, WeckerDeleteOnetimeIntentHandler())
         hass.data[_DATA_INTENTS_REGISTERED] = True
 
     await _async_install_default_sentences(hass)
