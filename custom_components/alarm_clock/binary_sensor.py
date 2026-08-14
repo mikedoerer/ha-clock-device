@@ -1,4 +1,4 @@
-"""Binary sensors for the Wecker integration."""
+"""Binary sensors for the Alarm Clock integration."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 from .models import AlarmState
 
 
@@ -24,7 +24,7 @@ async def async_setup_entry(
         )
 
 
-class RingingBinarySensor(WeckerEntity, BinarySensorEntity):
+class RingingBinarySensor(AlarmClockEntity, BinarySensorEntity):
     """On while the alarm is actively playing."""
 
     _attr_icon = "mdi:bell-ring"
@@ -37,7 +37,7 @@ class RingingBinarySensor(WeckerEntity, BinarySensorEntity):
         return self.coordinator.state == AlarmState.RINGING
 
 
-class SnoozedBinarySensor(WeckerEntity, BinarySensorEntity):
+class SnoozedBinarySensor(AlarmClockEntity, BinarySensorEntity):
     """On while waiting out the snooze period."""
 
     _attr_icon = "mdi:alarm-snooze"

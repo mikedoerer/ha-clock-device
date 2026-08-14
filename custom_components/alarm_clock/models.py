@@ -1,4 +1,4 @@
-"""Data models for the Wecker integration."""
+"""Data models for the Alarm Clock integration."""
 
 from __future__ import annotations
 

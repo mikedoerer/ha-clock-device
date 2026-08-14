@@ -252,7 +252,7 @@ class AlarmClockCoordinator:
         media_content_id = media.get(CONF_MEDIA_CONTENT_ID)
         if not media_content_id:
             _LOGGER.warning(
-                "Wecker '%s': kein Wecker-Sound konfiguriert, spiele nichts ab", self.name
+                "Alarm Clock '%s': no alarm sound configured, playing nothing", self.name
             )
             return
         await self.hass.services.async_call(

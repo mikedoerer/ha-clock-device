@@ -1,6 +1,6 @@
-"""Button entities for the Wecker integration.
+"""Button entities for the Alarm Clock integration.
 
-Snooze and Stop mirror the `wecker.snooze`/`wecker.stop` services as
+Snooze and Stop mirror the `alarm_clock.snooze`/`alarm_clock.stop` services as
 buttons for convenient in-app/dashboard use. All three buttons live under
 Controls on the device page.
 """
@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 
 
 async def async_setup_entry(
@@ -32,7 +32,7 @@ async def async_setup_entry(
         )
 
 
-class SnoozeButton(WeckerEntity, ButtonEntity):
+class SnoozeButton(AlarmClockEntity, ButtonEntity):
     """Snoozes a ringing (or already-snoozed) alarm."""
 
     _attr_icon = "mdi:alarm-snooze"
@@ -44,7 +44,7 @@ class SnoozeButton(WeckerEntity, ButtonEntity):
         await self.coordinator.async_snooze()
 
 
-class StopButton(WeckerEntity, ButtonEntity):
+class StopButton(AlarmClockEntity, ButtonEntity):
     """Fully dismisses a ringing or snoozed alarm."""
 
     _attr_icon = "mdi:alarm-light-off"
@@ -56,7 +56,7 @@ class StopButton(WeckerEntity, ButtonEntity):
         await self.coordinator.async_stop()
 
 
-class TestRingButton(WeckerEntity, ButtonEntity):
+class TestRingButton(AlarmClockEntity, ButtonEntity):
     """Immediately starts the ringing sequence, for testing sound/light wiring."""
 
     _attr_icon = "mdi:bell-alert"

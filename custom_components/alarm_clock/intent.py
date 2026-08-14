@@ -1,4 +1,4 @@
-"""Voice control (Phase 2): Assist intents for the Wecker integration.
+"""Voice control (Phase 2): Assist intents for the Alarm Clock integration.
 
 Sentence recognition is only ever loaded from `config/custom_sentences/<lang>/`
 - a custom (HACS) integration cannot ship its own sentence files that get
@@ -14,8 +14,8 @@ without requiring a full Home Assistant restart.
 Snooze/Stop ("schlummern"/"wecker beenden") only make sense while an alarm
 is ringing/snoozed, so their device resolution falls back to "the single
 alarm clock currently ringing/snoozed" when the satellite doesn't resolve
-one. Setting or deleting a schedule (WeckerSetRecurring/WeckerSetOnetime/
-WeckerDeleteRecurring/WeckerDeleteOnetime) has no such "currently active"
+one. Setting or deleting a schedule (AlarmClockSetRecurring/AlarmClockSetOnetime/
+AlarmClockDeleteRecurring/AlarmClockDeleteOnetime) has no such "currently active"
 anchor, so it falls back to "the single configured alarm clock" instead -
 with multiple devices and no satellite match, it asks for clarification
 rather than guessing either way.
@@ -50,7 +50,7 @@ from .models import WEEKDAY_ORDER, AlarmState, Weekday
 _LOGGER = logging.getLogger(__name__)
 
 _BUNDLED_SENTENCES_DIR = Path(__file__).parent / "sentences"
-_INSTALLED_SENTENCES_FILENAME = "wecker.yaml"
+_INSTALLED_SENTENCES_FILENAME = "alarm_clock.yaml"
 
 _DATA_INTENTS_REGISTERED = f"{DOMAIN}_intents_registered"
 
@@ -90,7 +90,7 @@ def _sync_sentence_files(hass: HomeAssistant, last_shipped: dict[str, str]) -> t
             target_dir.mkdir(parents=True, exist_ok=True)
 
         target.write_text(bundled_text, encoding="utf-8")
-        _LOGGER.info("Wecker: Sprachbefehle nach %s installiert", target)
+        _LOGGER.info("Alarm Clock: voice commands installed to %s", target)
         updated[language] = bundled_text
         changed_any = True
     return changed_any, updated
@@ -173,7 +173,7 @@ def _resolve_coordinator_for_schedule(intent_obj: intent.Intent) -> AlarmClockCo
     raise intent.IntentHandleError(_localized(_TEXT_NO_DEVICE, intent_obj.language))
 
 
-class _WeckerIntentHandler(intent.IntentHandler):
+class _AlarmClockIntentHandler(intent.IntentHandler):
     """Shared resolve-device-then-act flow for the snooze/stop intents."""
 
     _SUCCESS_SPEECH: dict[str, str]  # {"de": "{name} ...", "en": "{name} ..."}
@@ -201,8 +201,8 @@ class _WeckerIntentHandler(intent.IntentHandler):
         return response
 
 
-class WeckerSnoozeIntentHandler(_WeckerIntentHandler):
-    """Handles the WeckerSnooze intent ("schlummern" / "snooze")."""
+class AlarmClockSnoozeIntentHandler(_AlarmClockIntentHandler):
+    """Handles the AlarmClockSnooze intent ("schlummern" / "snooze")."""
 
     intent_type = INTENT_SNOOZE
     _SUCCESS_SPEECH = {"de": "{name} schlummert.", "en": "{name} snoozed."}
@@ -211,8 +211,8 @@ class WeckerSnoozeIntentHandler(_WeckerIntentHandler):
         await coordinator.async_snooze()
 
 
-class WeckerStopIntentHandler(_WeckerIntentHandler):
-    """Handles the WeckerStop intent ("wecker beenden" / "stop the alarm")."""
+class AlarmClockStopIntentHandler(_AlarmClockIntentHandler):
+    """Handles the AlarmClockStop intent ("wecker beenden" / "stop the alarm")."""
 
     intent_type = INTENT_STOP
     _SUCCESS_SPEECH = {"de": "{name} beendet.", "en": "{name} stopped."}
@@ -221,10 +221,10 @@ class WeckerStopIntentHandler(_WeckerIntentHandler):
         await coordinator.async_stop()
 
 
-class _WeckerScheduleIntentHandler(intent.IntentHandler):
+class _AlarmClockScheduleIntentHandler(intent.IntentHandler):
     """Shared resolve-device-then-configure flow for schedule-setting intents.
 
-    Parallels _WeckerIntentHandler (snooze/stop) but doesn't require the
+    Parallels _AlarmClockIntentHandler (snooze/stop) but doesn't require the
     alarm to currently be ringing/snoozed, and lets subclasses build speech
     dynamically (weekday name, "today"/"tomorrow", time) instead of a fixed
     per-language template.
@@ -336,29 +336,29 @@ def _next_occurrence_for_date(
 
 
 def _resolve_recurring_days(intent_obj: intent.Intent, lang: str) -> tuple[list[Weekday], str]:
-    """Resolve which weekdays a WeckerSetRecurring/WeckerDeleteRecurring sentence targets.
+    """Resolve which weekdays a AlarmClockSetRecurring/AlarmClockDeleteRecurring sentence targets.
 
     Returns the weekdays plus the speech text describing them ("Montag",
     "Montag bis Mittwoch", "jeden Tag").
     """
-    from_slot = intent_obj.slots.get("wecker_weekday_from")
+    from_slot = intent_obj.slots.get("alarm_weekday_from")
     if from_slot:
-        to_slot = intent_obj.slots["wecker_weekday_to"]
+        to_slot = intent_obj.slots["alarm_weekday_to"]
         days = _weekday_range(Weekday(from_slot["value"]), Weekday(to_slot["value"]))
         first = _WEEKDAY_NAMES[lang][days[0]]
         last = _WEEKDAY_NAMES[lang][days[-1]]
         when = f"{first} bis {last}" if lang == "de" else f"{first} through {last}"
         return days, when
 
-    day_value = _slot_value(intent_obj, "wecker_weekday")  # "mon".."sun" or "all"
+    day_value = _slot_value(intent_obj, "alarm_weekday")  # "mon".."sun" or "all"
     if day_value == "all":
         return list(WEEKDAY_ORDER), ("jeden Tag" if lang == "de" else "every day")
     day = Weekday(day_value)
     return [day], _WEEKDAY_NAMES[lang][day]
 
 
-class WeckerSetRecurringIntentHandler(_WeckerScheduleIntentHandler):
-    """Handles WeckerSetRecurring ("wecker montags auf 7 Uhr stellen" / "set alarm for monday to 7").
+class AlarmClockSetRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
+    """Handles AlarmClockSetRecurring ("wecker montags auf 7 Uhr stellen" / "set alarm for monday to 7").
 
     Setting a weekday's time also enables that weekday - saying the sentence
     is the whole action, no separate "activate" step needed.
@@ -383,11 +383,11 @@ class WeckerSetRecurringIntentHandler(_WeckerScheduleIntentHandler):
         return f"{coordinator.name}: {when} at {time_str}."
 
 
-class WeckerDeleteRecurringIntentHandler(_WeckerScheduleIntentHandler):
-    """Handles WeckerDeleteRecurring ("wecker montag löschen" / "delete the alarm for monday").
+class AlarmClockDeleteRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
+    """Handles AlarmClockDeleteRecurring ("wecker montag löschen" / "delete the alarm for monday").
 
     Disarms the targeted weekday(s) without touching their configured time -
-    re-enabling later (via switch or a new WeckerSetRecurring command) keeps
+    re-enabling later (via switch or a new AlarmClockSetRecurring command) keeps
     the old time.
     """
 
@@ -407,18 +407,18 @@ class WeckerDeleteRecurringIntentHandler(_WeckerScheduleIntentHandler):
         return f"{coordinator.name}: {when} deleted."
 
 
-class WeckerSetOnetimeIntentHandler(_WeckerScheduleIntentHandler):
-    """Handles WeckerSetOnetime.
+class AlarmClockSetOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
+    """Handles AlarmClockSetOnetime.
 
     Covers several ways of anchoring the one-time alarm's date, resolved from
     whichever slot the matched sentence produced:
     - no date slot at all ("wecker 7 uhr stellen") - next possible occurrence
       of that time, i.e. today if it hasn't passed yet, else tomorrow.
-    - wecker_relative_day ("heute"/"morgen") - that day, rolling to the next
+    - alarm_relative_day ("heute"/"morgen") - that day, rolling to the next
       day if the time has already passed (heute -> morgen).
-    - wecker_weekday ("wecker montag um 7 uhr stellen") - the next occurrence
+    - alarm_weekday ("wecker montag um 7 uhr stellen") - the next occurrence
       of that weekday (today counts if the time hasn't passed yet).
-    - day + wecker_month ("wecker am 15. august um 7 uhr stellen") - that
+    - day + alarm_month ("wecker am 15. august um 7 uhr stellen") - that
       calendar date, rolling to next year if it's already passed this year.
     """
 
@@ -431,8 +431,8 @@ class WeckerSetOnetimeIntentHandler(_WeckerScheduleIntentHandler):
         lang = (intent_obj.language or "de")[:2]
         now = dt_util.now()
 
-        relative_slot = intent_obj.slots.get("wecker_relative_day")
-        weekday_slot = intent_obj.slots.get("wecker_weekday")
+        relative_slot = intent_obj.slots.get("alarm_relative_day")
+        weekday_slot = intent_obj.slots.get("alarm_weekday")
         day_slot = intent_obj.slots.get("day")
 
         if weekday_slot:
@@ -440,7 +440,7 @@ class WeckerSetOnetimeIntentHandler(_WeckerScheduleIntentHandler):
             target = AlarmClockCoordinator._next_occurrence_for_weekday(now, day, alarm_time)
             day_word = _WEEKDAY_NAMES[lang][day]
         elif day_slot:
-            month = int(_slot_value(intent_obj, "wecker_month"))
+            month = int(_slot_value(intent_obj, "alarm_month"))
             target = _next_occurrence_for_date(now, int(day_slot["value"]), month, alarm_time, lang)
             month_name = _MONTH_NAMES[lang][month]
             day_word = (
@@ -472,11 +472,11 @@ class WeckerSetOnetimeIntentHandler(_WeckerScheduleIntentHandler):
         return f"{coordinator.name}: {day_word} at {time_str}."
 
 
-class WeckerDeleteOnetimeIntentHandler(_WeckerScheduleIntentHandler):
-    """Handles WeckerDeleteOnetime ("wecker löschen" / "delete the alarm").
+class AlarmClockDeleteOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
+    """Handles AlarmClockDeleteOnetime ("wecker löschen" / "delete the alarm").
 
     Always targets the one-time alarm - to delete a recurring weekday alarm,
-    the weekday must be named (WeckerDeleteRecurring).
+    the weekday must be named (AlarmClockDeleteRecurring).
     """
 
     intent_type = INTENT_DELETE_ONETIME
@@ -492,14 +492,14 @@ class WeckerDeleteOnetimeIntentHandler(_WeckerScheduleIntentHandler):
 
 
 async def async_setup_intents(hass: HomeAssistant) -> None:
-    """Register the Wecker intents and install their sentences."""
+    """Register the Alarm Clock intents and install their sentences."""
     if not hass.data.get(_DATA_INTENTS_REGISTERED):
-        intent.async_register(hass, WeckerSnoozeIntentHandler())
-        intent.async_register(hass, WeckerStopIntentHandler())
-        intent.async_register(hass, WeckerSetRecurringIntentHandler())
-        intent.async_register(hass, WeckerSetOnetimeIntentHandler())
-        intent.async_register(hass, WeckerDeleteRecurringIntentHandler())
-        intent.async_register(hass, WeckerDeleteOnetimeIntentHandler())
+        intent.async_register(hass, AlarmClockSnoozeIntentHandler())
+        intent.async_register(hass, AlarmClockStopIntentHandler())
+        intent.async_register(hass, AlarmClockSetRecurringIntentHandler())
+        intent.async_register(hass, AlarmClockSetOnetimeIntentHandler())
+        intent.async_register(hass, AlarmClockDeleteRecurringIntentHandler())
+        intent.async_register(hass, AlarmClockDeleteOnetimeIntentHandler())
         hass.data[_DATA_INTENTS_REGISTERED] = True
 
     await _async_install_default_sentences(hass)

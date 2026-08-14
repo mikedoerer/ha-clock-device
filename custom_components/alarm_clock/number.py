@@ -1,4 +1,4 @@
-"""Number entities for the Wecker integration."""
+"""Number entities for the Alarm Clock integration."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 
 
 async def async_setup_entry(
@@ -24,8 +24,8 @@ async def async_setup_entry(
         )
 
 
-class SnoozeDurationNumber(WeckerEntity, NumberEntity):
-    """Minutes to snooze by when `wecker.snooze` is called without an override."""
+class SnoozeDurationNumber(AlarmClockEntity, NumberEntity):
+    """Minutes to snooze by when `alarm_clock.snooze` is called without an override."""
 
     _attr_icon = "mdi:alarm-snooze"
     _attr_native_min_value = 1
@@ -45,7 +45,7 @@ class SnoozeDurationNumber(WeckerEntity, NumberEntity):
         await self.coordinator.async_set_snooze_duration(value)
 
 
-class VolumeNumber(WeckerEntity, NumberEntity):
+class VolumeNumber(AlarmClockEntity, NumberEntity):
     """Playback volume (0.0-1.0) used when the alarm rings."""
 
     _attr_icon = "mdi:volume-high"

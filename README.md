@@ -1,15 +1,15 @@
-# Wecker
+# Alarm Clock
 
 HACS integration for Home Assistant: virtual, voice-controlled alarm clocks.
 
-After installation, set up the integration once under *Settings → Devices & services → Add integration → Wecker*. Then add as many **virtual alarm clock devices** as you like from the integration's page ("+ Add device"). Each device is a complete, independent alarm clock with:
+After installation, set up the integration once under *Settings → Devices & services → Add integration → Alarm Clock*. Then add as many **virtual alarm clock devices** as you like from the integration's page ("+ Add device"). Each device is a complete, independent alarm clock with:
 
 - recurring alarm - each weekday individually switchable, with its **own** time per weekday
 - one-time alarm (date + time), independent of the recurring alarm
 - configurable input device (Assist satellite, e.g. HA Voice PE)
 - output device + alarm sound in **one** step via "browse media" (the device you pick the sound on doubles as the output device - no separate device selection) plus separately adjustable volume
 - optional light (any `light` entity) with configured color/brightness while ringing - always turns off when stopped (no state restore)
-- snooze via voice, button entity, or Voice PE button ([blueprint](blueprints/automation/wecker/voice_pe_snooze_button.yaml))
+- snooze via voice, button entity, or Voice PE button ([blueprint](blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml))
 - stop via voice or button entity
 
 ## Status
@@ -24,7 +24,7 @@ After installation, set up the integration once under *Settings → Devices & se
 
 ## Voice control
 
-The following sentences work out of the box (German and English, see [`custom_components/wecker/sentences/`](custom_components/wecker/sentences/)):
+The following sentences work out of the box (German and English, see [`custom_components/alarm_clock/sentences/`](custom_components/alarm_clock/sentences/)):
 
 - Snooze: "schlummern", "wecker schlummern" / "snooze", "snooze the alarm"
 - Stop: "wecker beenden", "wecker aus", "wecker stoppen" / "stop the alarm", "turn off the alarm"
@@ -34,7 +34,7 @@ The following sentences work out of the box (German and English, see [`custom_co
 - Delete one-time alarm: "wecker löschen", "lösche den wecker" / "delete the alarm", "delete alarm"
 - Terse German forms also work, dropping "auf/um ... stellen" entirely: "wecker 8 uhr" (one-time), "wecker freitag 8 uhr" (one-time, next Friday), "wecker freitags 8 uhr" (recurring, every Friday) - the trailing "-s" on the weekday is what tells one-time and recurring apart here, since neither a preposition nor "stellen" is present to disambiguate otherwise.
 
-The integration copies these sentences into `config/custom_sentences/<language>/wecker.yaml` on every setup (HA only loads sentence files from that directory - a custom integration can't ship them so they're picked up automatically), but only ever overwrites a file whose content still matches exactly what it last wrote there itself. Your own edits, or deleting the file (to disable voice control), are therefore preserved permanently - even across integration updates - while genuine changes to the bundled sentences (like the weekday/one-time/delete commands in this version) still land, as long as the file hasn't been touched since the last install.
+The integration copies these sentences into `config/custom_sentences/<language>/alarm_clock.yaml` on every setup (HA only loads sentence files from that directory - a custom integration can't ship them so they're picked up automatically), but only ever overwrites a file whose content still matches exactly what it last wrote there itself. Your own edits, or deleting the file (to disable voice control), are therefore preserved permanently - even across integration updates - while genuine changes to the bundled sentences still land, as long as the file hasn't been touched since the last install.
 
 Which device responds is determined by the voice command's `satellite_id`: first, it looks for an alarm clock whose configured input device (Assist satellite) is exactly the one that received the command. For snooze/stop, it otherwise falls back to the single alarm clock currently ringing/snoozed; for the weekday/one-time/delete commands there's no "currently ringing" anchor, so it falls back to the single configured alarm clock instead. If it's still ambiguous in either case, or there's no matching alarm clock, a spoken error message is given instead of a guess.
 
@@ -42,10 +42,10 @@ Which device responds is determined by the voice command's `satellite_id`: first
 
 Not yet listed in the official HACS store - add it as a HACS "custom repository":
 
-1. In HACS → *Integrations* → top-right *⋮* → *Custom repositories* → enter this GitHub URL with category "Integration" (alternatively, copy `custom_components/wecker/` manually to `config/custom_components/`).
-2. Install "Wecker" via HACS.
+1. In HACS → *Integrations* → top-right *⋮* → *Custom repositories* → enter this GitHub URL with category "Integration" (alternatively, copy `custom_components/alarm_clock/` manually to `config/custom_components/`).
+2. Install "Alarm Clock" via HACS.
 3. Restart Home Assistant.
-4. *Settings → Devices & services → Add integration → "Wecker"* - sets up the integration once (no configuration dialog).
+4. *Settings → Devices & services → Add integration → "Alarm Clock"* - sets up the integration once (no configuration dialog).
 5. On the new integration page, use "+ Add device" to create and configure a virtual alarm clock device as a subentry (weekdays/times, output device + sound, optionally light and input device). Repeat as often as you like for more alarm clocks.
 
 On first start, the integration also automatically copies the voice commands to `config/custom_sentences/` (see [Voice control](#voice-control)) - no further step needed. For snooze via a hardware button (e.g. Home Assistant Voice PE), import the [button snooze blueprint](#button-snooze-blueprint-phase-3) separately.
@@ -55,13 +55,13 @@ On first start, the integration also automatically copies the voice commands to 
 - After creating a device, all entities (weekday switches/times, one-time alarm, snooze duration, volume, `Ringing`/`Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - the three buttons are under "Controls", everything else configurable (weekday switches/times, one-time alarm, snooze duration, volume) is under "Configuration".
 - Set different times for multiple weekdays and enable them → `sensor.<device>_next_alarm` shows the correct, nearest individual appointment.
 - Press `button.<device>_test_ring` → the configured media player plays, the configured light turns on, `binary_sensor.<device>_ringing` = on.
-- `button.<device>_snooze` (or service `wecker.snooze`) → playback stops, `binary_sensor.<device>_snoozed` = on, it rings again after the snooze duration.
-- `button.<device>_stop` (or service `wecker.stop`) → everything back to idle, the configured light turns off.
+- `button.<device>_snooze` (or service `alarm_clock.snooze`) → playback stops, `binary_sensor.<device>_snoozed` = on, it rings again after the snooze duration.
+- `button.<device>_stop` (or service `alarm_clock.stop`) → everything back to idle, the configured light turns off.
 - Restart HA → all settings (times, weekdays, armed/disarmed) are preserved.
 
 ## Manual verification (Phase 2)
 
-- After the first setup, `config/custom_sentences/de/wecker.yaml` and `.../en/wecker.yaml` exist, with an info log about it ("Sprachbefehle nach ... installiert").
+- After the first setup, `config/custom_sentences/de/alarm_clock.yaml` and `.../en/alarm_clock.yaml` exist, with an info log about it ("voice commands installed to ...").
 - Trigger test ring, then say "schlummern" on the configured Assist satellite → playback stops, `binary_sensor.<device>_snoozed` = on, the satellite speaks a confirmation.
 - Let it ring again, say "wecker beenden" → idle, light off, confirmation.
 - Exactly one alarm clock is ringing, command issued via *Developer tools → Actions → `conversation.process`* without an associated satellite → the same alarm clock still responds (fallback).
@@ -84,16 +84,16 @@ On first start, the integration also automatically copies the voice commands to 
 - "wecker löschen" (without a day) → the "One-time alarm active" switch turns off, the stored date stays unchanged.
 - "wecker 8 uhr" (real spoken voice input, no "um"/"stellen") → sets the one-time alarm, not misrecognized as a generic entity-control command.
 - "wecker freitag 8 uhr" vs "wecker freitags 8 uhr" (real spoken voice input) → the first sets the one-time alarm for next Friday, the second arms the recurring Friday switch - the "-s" is what tells them apart.
-- Reinstall the integration (e.g. update) → `config/custom_sentences/de/wecker.yaml` is automatically updated (new info log), as long as the file hasn't changed since the last install.
-- Manually edit or delete the file `config/custom_sentences/de/wecker.yaml`, then restart HA → the file stays untouched or deleted, respectively - it's not recreated.
+- Reinstall the integration (e.g. update) → `config/custom_sentences/de/alarm_clock.yaml` is automatically updated (new info log), as long as the file hasn't changed since the last install.
+- Manually edit or delete the file `config/custom_sentences/de/alarm_clock.yaml`, then restart HA → the file stays untouched or deleted, respectively - it's not recreated.
 
 ## Button snooze blueprint (Phase 3)
 
-Triggers `wecker.snooze` on the selected alarm clock device whenever a button `event` entity (e.g. `event.<device>_button_press` of a Home Assistant Voice PE) reports one of the configured event types.
+Triggers `alarm_clock.snooze` on the selected alarm clock device whenever a button `event` entity (e.g. `event.<device>_button_press` of a Home Assistant Voice PE) reports one of the configured event types.
 
 Requires **Home Assistant 2026.1 or newer** (introduced the `event.received` trigger this uses).
 
-1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/wecker/voice_pe_snooze_button.yaml`](blueprints/automation/wecker/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/wecker/`).
+1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml`](blueprints/automation/alarm-clock/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/alarm-clock/`). Note: when importing by URL, Home Assistant names the local folder after the GitHub username (`mikedoerer`), not after the repository or integration - that's how HA's blueprint importer always works and isn't something this repo's layout can influence; rename the local folder afterward if you'd rather it read differently.
 2. Create an automation from the blueprint, select the button event entity and alarm clock device. The preset event types (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) match the Voice PE - adjust as needed for other buttons.
 
 Deliberately snooze-only, no stop blueprint - use voice control or the `Stop` button entity to stop.

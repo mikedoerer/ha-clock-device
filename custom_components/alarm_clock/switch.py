@@ -1,4 +1,4 @@
-"""Switch entities for the Wecker integration."""
+"""Switch entities for the Alarm Clock integration."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 from .models import WEEKDAY_ORDER, Weekday
 
 
@@ -28,7 +28,7 @@ async def async_setup_entry(
         async_add_entities(entities, config_subentry_id=subentry_id)
 
 
-class WeekdayEnabledSwitch(WeckerEntity, SwitchEntity):
+class WeekdayEnabledSwitch(AlarmClockEntity, SwitchEntity):
     """Arms/disarms the recurring alarm for one specific weekday."""
 
     _attr_icon = "mdi:calendar-clock"
@@ -48,7 +48,7 @@ class WeekdayEnabledSwitch(WeckerEntity, SwitchEntity):
         await self.coordinator.async_set_weekday_enabled(self._day, False)
 
 
-class OnetimeEnabledSwitch(WeckerEntity, SwitchEntity):
+class OnetimeEnabledSwitch(AlarmClockEntity, SwitchEntity):
     """Arms/disarms the one-time alarm."""
 
     _attr_icon = "mdi:alarm"

@@ -1,6 +1,6 @@
-"""Config flow for the Wecker integration.
+"""Config flow for the Alarm Clock integration.
 
-The top-level config entry ("Wecker") is a singleton with no configurable
+The top-level config entry ("Alarm Clock") is a singleton with no configurable
 fields of its own. Every virtual alarm clock device is created, edited and
 removed as a config *subentry* of that single entry - one subentry always
 owns exactly one device (required since Home Assistant no longer allows a
@@ -98,7 +98,7 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
-class WeckerConfigFlow(ConfigFlow, domain=DOMAIN):
+class AlarmClockConfigFlow(ConfigFlow, domain=DOMAIN):
     """Singleton top-level config flow - actual devices live in subentries."""
 
     VERSION = 1
@@ -107,7 +107,7 @@ class WeckerConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         if user_input is not None:
-            return self.async_create_entry(title="Wecker", data={})
+            return self.async_create_entry(title="Alarm Clock", data={})
         return self.async_show_form(step_id="user")
 
     @classmethod
@@ -115,11 +115,11 @@ class WeckerConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Wecker only supports one kind of subentry: a virtual alarm clock device."""
-        return {SUBENTRY_TYPE_ALARM_CLOCK: WeckerAlarmSubentryFlow}
+        """Alarm Clock only supports one kind of subentry: a virtual alarm clock device."""
+        return {SUBENTRY_TYPE_ALARM_CLOCK: AlarmClockSubentryFlow}
 
 
-class WeckerAlarmSubentryFlow(ConfigSubentryFlow):
+class AlarmClockSubentryFlow(ConfigSubentryFlow):
     """Create or reconfigure one virtual alarm clock device."""
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:

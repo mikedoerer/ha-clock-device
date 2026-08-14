@@ -1,4 +1,4 @@
-"""Datetime entity for the Wecker integration - the one-time alarm."""
+"""Datetime entity for the Alarm Clock integration - the one-time alarm."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 
 
 async def async_setup_entry(
@@ -23,7 +23,7 @@ async def async_setup_entry(
         async_add_entities([OnetimeDatetimeEntity(coordinator)], config_subentry_id=subentry_id)
 
 
-class OnetimeDatetimeEntity(WeckerEntity, DateTimeEntity):
+class OnetimeDatetimeEntity(AlarmClockEntity, DateTimeEntity):
     """Date+time of the one-time alarm, fully independent of the recurring weekday alarms."""
 
     _attr_icon = "mdi:calendar-clock"

@@ -2,12 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set up Wecker",
-        "description": "Wecker is installed once. After setup, add one or more virtual alarm clock devices from the integration's page."
+        "title": "Set up Alarm Clock",
+        "description": "Alarm Clock is installed once. After setup, add one or more virtual alarm clock devices from the integration's page."
       }
     },
     "abort": {
-      "single_instance_allowed": "Wecker is already set up - only one instance is needed."
+      "single_instance_allowed": "Alarm Clock is already set up - only one instance is needed."
     }
   },
   "config_subentries": {
