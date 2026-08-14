@@ -1,0 +1,96 @@
+language: "en"
+lists:
+  alarm_weekday:
+    values:
+      - in: "monday"
+        out: "mon"
+      - in: "tuesday"
+        out: "tue"
+      - in: "wednesday"
+        out: "wed"
+      - in: "thursday"
+        out: "thu"
+      - in: "friday"
+        out: "fri"
+      - in: "saturday"
+        out: "sat"
+      - in: "sunday"
+        out: "sun"
+      - in: "every day"
+        out: "all"
+  alarm_relative_day:
+    values:
+      - in: "today"
+        out: "today"
+      - in: "tomorrow"
+        out: "tomorrow"
+  alarm_month:
+    values:
+      - in: "january"
+        out: "1"
+      - in: "february"
+        out: "2"
+      - in: "march"
+        out: "3"
+      - in: "april"
+        out: "4"
+      - in: "may"
+        out: "5"
+      - in: "june"
+        out: "6"
+      - in: "july"
+        out: "7"
+      - in: "august"
+        out: "8"
+      - in: "september"
+        out: "9"
+      - in: "october"
+        out: "10"
+      - in: "november"
+        out: "11"
+      - in: "december"
+        out: "12"
+intents:
+  AlarmClockSnooze:
+    data:
+      - sentences:
+          - "snooze"
+          - "snooze the alarm"
+          - "snooze alarm"
+  AlarmClockStop:
+    data:
+      - sentences:
+          - "stop the alarm"
+          - "stop alarm"
+          - "turn off the alarm"
+          - "turn off alarm"
+  AlarmClockSetRecurring:
+    data:
+      - sentences:
+          - "set the alarm for [every ]{alarm_weekday} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set alarm for [every ]{alarm_weekday} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for every {alarm_weekday:alarm_weekday_from} through {alarm_weekday:alarm_weekday_to} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set alarm for every {alarm_weekday:alarm_weekday_from} through {alarm_weekday:alarm_weekday_to} to ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+  AlarmClockSetOnetime:
+    data:
+      - sentences:
+          - "set the alarm at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set an alarm at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for {alarm_relative_day} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for {alarm_relative_day} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for {alarm_weekday} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for {alarm_weekday} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set the alarm for the {1..31:day}[st|nd|rd|th] of {alarm_month} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+          - "set a one time alarm for the {1..31:day}[st|nd|rd|th] of {alarm_month} at ({0..23:hour} [{0..59:minute}]|{0..23:hour}:{0..59:minute})"
+  AlarmClockDeleteRecurring:
+    data:
+      - sentences:
+          - "delete the alarm for [every ]{alarm_weekday}"
+          - "delete alarm for [every ]{alarm_weekday}"
+          - "delete the alarm for every {alarm_weekday:alarm_weekday_from} through {alarm_weekday:alarm_weekday_to}"
+          - "delete alarm for every {alarm_weekday:alarm_weekday_from} through {alarm_weekday:alarm_weekday_to}"
+  AlarmClockDeleteOnetime:
+    data:
+      - sentences:
+          - "delete the alarm"
+          - "delete alarm"

@@ -1,0 +1,135 @@
+language: "de"
+lists:
+  alarm_weekday:
+    values:
+      - in: "montag[s]"
+        out: "mon"
+      - in: "dienstag[s]"
+        out: "tue"
+      - in: "mittwoch[s]"
+        out: "wed"
+      - in: "donnerstag[s]"
+        out: "thu"
+      - in: "freitag[s]"
+        out: "fri"
+      - in: "samstag[s]"
+        out: "sat"
+      - in: "sonntag[s]"
+        out: "sun"
+      - in: "(jeden tag|täglich)"
+        out: "all"
+  alarm_weekday_bare:
+    values:
+      - in: "montag"
+        out: "mon"
+      - in: "dienstag"
+        out: "tue"
+      - in: "mittwoch"
+        out: "wed"
+      - in: "donnerstag"
+        out: "thu"
+      - in: "freitag"
+        out: "fri"
+      - in: "samstag"
+        out: "sat"
+      - in: "sonntag"
+        out: "sun"
+  alarm_weekday_bare_recurring:
+    values:
+      - in: "montags"
+        out: "mon"
+      - in: "dienstags"
+        out: "tue"
+      - in: "mittwochs"
+        out: "wed"
+      - in: "donnerstags"
+        out: "thu"
+      - in: "freitags"
+        out: "fri"
+      - in: "samstags"
+        out: "sat"
+      - in: "sonntags"
+        out: "sun"
+      - in: "(jeden tag|täglich)"
+        out: "all"
+  alarm_relative_day:
+    values:
+      - in: "heute"
+        out: "today"
+      - in: "morgen"
+        out: "tomorrow"
+  alarm_month:
+    values:
+      - in: "januar"
+        out: "1"
+      - in: "februar"
+        out: "2"
+      - in: "märz"
+        out: "3"
+      - in: "april"
+        out: "4"
+      - in: "mai"
+        out: "5"
+      - in: "juni"
+        out: "6"
+      - in: "juli"
+        out: "7"
+      - in: "august"
+        out: "8"
+      - in: "september"
+        out: "9"
+      - in: "oktober"
+        out: "10"
+      - in: "november"
+        out: "11"
+      - in: "dezember"
+        out: "12"
+intents:
+  AlarmClockSnooze:
+    data:
+      - sentences:
+          - "schlummern"
+          - "wecker schlummern"
+          - "wecker schlummer"
+  AlarmClockStop:
+    data:
+      - sentences:
+          - "wecker beenden"
+          - "wecker aus"
+          - "wecker stoppen"
+          - "wecker ausschalten"
+  AlarmClockSetRecurring:
+    data:
+      - sentences:
+          - "wecker [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {alarm_weekday_bare_recurring:alarm_weekday} [um ]({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für {alarm_weekday_bare_recurring:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+  AlarmClockSetOnetime:
+    data:
+      - sentences:
+          - "wecker ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {alarm_relative_day} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker {alarm_relative_day} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker {alarm_weekday_bare:alarm_weekday} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker am {1..31:day}[.] {alarm_month} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "stelle den wecker für den {1..31:day}[.] {alarm_month} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+  AlarmClockDeleteRecurring:
+    data:
+      - sentences:
+          - "wecker [jeden ]{alarm_weekday} löschen"
+          - "lösche den wecker für [jeden ]{alarm_weekday}"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} löschen"
+          - "lösche den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to}"
+  AlarmClockDeleteOnetime:
+    data:
+      - sentences:
+          - "wecker löschen"
+          - "lösche den wecker"

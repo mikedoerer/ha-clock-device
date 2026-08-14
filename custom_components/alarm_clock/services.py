@@ -1,4 +1,4 @@
-"""Custom services for the Wecker integration: wecker.snooze / wecker.stop.
+"""Custom services for the Alarm Clock integration: alarm_clock.snooze / alarm_clock.stop.
 
 These two actions don't map onto any single entity's native service, so
 they're registered as domain-level, device-targeted services instead of
@@ -29,7 +29,7 @@ SERVICE_SCHEMA = vol.Schema(
 def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list[AlarmClockCoordinator]:
     device_ids = call.data.get("device_id") or []
     if not device_ids:
-        raise ServiceValidationError("Bitte ein Wecker-Gerät als Ziel auswählen.")
+        raise ServiceValidationError("Please select an alarm clock device as target.")
 
     device_registry = dr.async_get(hass)
     coordinators: list[AlarmClockCoordinator] = []
@@ -48,12 +48,12 @@ def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list[Alarm
             coordinators.append(coordinator)
 
     if not coordinators:
-        raise ServiceValidationError("Kein Wecker-Gerät für dieses Ziel gefunden.")
+        raise ServiceValidationError("No alarm clock device found for this target.")
     return coordinators
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
-    """Register wecker.snooze and wecker.stop once for the whole integration."""
+    """Register alarm_clock.snooze and alarm_clock.stop once for the whole integration."""
     if hass.services.has_service(DOMAIN, SERVICE_SNOOZE):
         return
 

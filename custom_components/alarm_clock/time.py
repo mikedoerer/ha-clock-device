@@ -1,4 +1,4 @@
-"""Time entities for the Wecker integration - one per weekday, each independent."""
+"""Time entities for the Alarm Clock integration - one per weekday, each independent."""
 
 from __future__ import annotations
 
@@ -7,11 +7,12 @@ from datetime import time as dt_time
 from homeassistant.components.time import TimeEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 from .models import WEEKDAY_ORDER, Weekday
 
 
@@ -24,13 +25,13 @@ async def async_setup_entry(
         async_add_entities(entities, config_subentry_id=subentry_id)
 
 
-class WeekdayTimeEntity(WeckerEntity, TimeEntity):
+class WeekdayTimeEntity(AlarmClockEntity, TimeEntity):
     """The alarm time for one specific weekday - not shared with any other weekday."""
 
     _attr_icon = "mdi:clock-outline"
 
     def __init__(self, coordinator: AlarmClockCoordinator, day: Weekday) -> None:
-        super().__init__(coordinator, f"weekday_{day.value}_time")
+        super().__init__(coordinator, f"weekday_{day.value}_time", entity_category=EntityCategory.CONFIG)
         self._day = day
 
     @property

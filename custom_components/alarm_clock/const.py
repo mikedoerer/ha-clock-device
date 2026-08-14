@@ -1,8 +1,8 @@
-"""Constants for the Wecker integration."""
+"""Constants for the Alarm Clock integration."""
 
 from __future__ import annotations
 
-DOMAIN = "wecker"
+DOMAIN = "alarm_clock"
 
 SUBENTRY_TYPE_ALARM_CLOCK = "alarm_clock"
 
@@ -46,10 +46,12 @@ SERVICE_STOP = "stop"
 ATTR_DURATION = "duration"
 
 # Voice control (Assist intents)
-INTENT_SNOOZE = "WeckerSnooze"
-INTENT_STOP = "WeckerStop"
-INTENT_SET_RECURRING = "WeckerSetRecurring"
-INTENT_SET_ONETIME = "WeckerSetOnetime"
+INTENT_SNOOZE = "AlarmClockSnooze"
+INTENT_STOP = "AlarmClockStop"
+INTENT_SET_RECURRING = "AlarmClockSetRecurring"
+INTENT_SET_ONETIME = "AlarmClockSetOnetime"
+INTENT_DELETE_RECURRING = "AlarmClockDeleteRecurring"
+INTENT_DELETE_ONETIME = "AlarmClockDeleteOnetime"
 
 
 def signal_update(subentry_id: str) -> str:

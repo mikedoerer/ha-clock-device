@@ -1,0 +1,27 @@
+snooze:
+  name: Snooze
+  description: >-
+    Stops the ringing alarm and lets it ring again after the snooze
+    duration.
+  target:
+    entity:
+      integration: alarm_clock
+  fields:
+    duration:
+      name: Duration
+      description: >-
+        Overrides the configured snooze duration (minutes) for this one
+        time.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+
+stop:
+  name: Stop
+  description: Fully stops the ringing or snoozed alarm.
+  target:
+    entity:
+      integration: alarm_clock

@@ -1,6 +1,6 @@
-"""The Wecker integration.
+"""The Alarm Clock integration.
 
-One config entry ("Wecker") is a singleton container; every virtual alarm
+One config entry ("Alarm Clock") is a singleton container; every virtual alarm
 clock device lives in its own config subentry (see config_flow.py). This
 module creates one `AlarmClockCoordinator` + one device per subentry,
 forwards entity platform setup, and reloads the whole entry whenever a
@@ -39,8 +39,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config_subentry_id=subentry_id,
             identifiers={(DOMAIN, subentry_id)},
             name=coordinator.name,
-            manufacturer="Wecker",
-            model="Virtueller Wecker",
+            manufacturer="Alarm Clock",
+            model="Virtual Alarm Clock",
         )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

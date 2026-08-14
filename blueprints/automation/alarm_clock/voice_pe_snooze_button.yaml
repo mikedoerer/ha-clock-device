@@ -1,0 +1,65 @@
+blueprint:
+  name: "Alarm Clock: Snooze via button event (e.g. Home Assistant Voice PE)"
+  description: >-
+    Triggers `alarm_clock.snooze` on the selected alarm clock device whenever
+    the selected button event entity reports one of the selected event types
+    - e.g. the center button of a Home Assistant Voice PE
+    (`event.<device>_button_press`).
+
+    Deliberately uses the `event.received` trigger instead of a `state`
+    trigger: with `state` + an attribute filter, identical presses in direct
+    succession (e.g. two "long_press" in a row) don't fire a second time,
+    because the observed attribute value doesn't change. `event.received`
+    doesn't have this problem.
+
+    Requires Home Assistant 2026.1 or newer (introduced the `event.received`
+    trigger this uses).
+
+    Deliberately snooze-only, no stop blueprint - use voice control or the
+    `Stop` button entity to stop the alarm.
+  domain: automation
+  input:
+    button_entity:
+      name: Button event entity
+      description: >-
+        The button's `event` entity, e.g. `event.<device>_button_press`.
+      selector:
+        entity:
+          filter:
+            - domain: event
+    alarm_clock_device:
+      name: Alarm clock device
+      description: The virtual alarm clock device to snooze.
+      selector:
+        device:
+          filter:
+            - integration: alarm_clock
+    event_types:
+      name: Event types
+      description: >-
+        Which event types reported by the button should trigger snooze.
+        Preset to all presses of the Home Assistant Voice PE (the simple
+        click is reserved there for voice control and isn't reported as an
+        event); adjust as needed for other buttons.
+      default:
+        - double_press
+        - triple_press
+        - long_press
+        - easter_egg_press
+      selector:
+        text:
+          multiple: true
+
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: !input button_entity
+    options:
+      event_type: !input event_types
+
+conditions: []
+
+actions:
+  - action: alarm_clock.snooze
+    target:
+      device_id: !input alarm_clock_device

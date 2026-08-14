@@ -1,11 +1,11 @@
 {
-  "domain": "wecker",
-  "name": "Wecker",
+  "domain": "alarm_clock",
+  "name": "Alarm Clock",
   "codeowners": ["@mikedoerer"],
   "config_flow": true,
   "documentation": "https://github.com/mikedoerer/ha-clock-device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/mikedoerer/ha-clock-device/issues",
   "requirements": [],
-  "version": "0.8.0"
+  "version": "0.9.0"
 }

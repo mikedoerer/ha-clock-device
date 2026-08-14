@@ -1,4 +1,4 @@
-"""Shared entity base classes for the Wecker integration.
+"""Shared entity base classes for the Alarm Clock integration.
 
 Every entity renders its state straight from its `AlarmClockCoordinator` -
 there is no separate cached copy of the value on the entity itself. Writable
@@ -14,12 +14,13 @@ from __future__ import annotations
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, Entity, EntityCategory
+from homeassistant.util import slugify
 
 from .const import DOMAIN, signal_update
 from .coordinator import AlarmClockCoordinator
 
 
-class WeckerEntity(Entity):
+class AlarmClockEntity(Entity):
     """Base entity bound to one virtual alarm clock device (= one subentry)."""
 
     _attr_has_entity_name = True
@@ -36,11 +37,15 @@ class WeckerEntity(Entity):
         self._attr_unique_id = f"{coordinator.subentry_id}_{key}"
         self._attr_translation_key = key
         self._attr_entity_category = entity_category
+        # Explicit (English, key-based) suggested_object_id - otherwise HA
+        # would slugify the *translated* name, making the entity_id depend
+        # on the active language instead of staying stable and English.
+        self._attr_suggested_object_id = slugify(f"{coordinator.name}_{key}")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.subentry_id)},
             name=coordinator.name,
-            manufacturer="Wecker",
-            model="Virtueller Wecker",
+            manufacturer="Alarm Clock",
+            model="Virtual Alarm Clock",
         )
 
     async def async_added_to_hass(self) -> None:

@@ -1,4 +1,4 @@
-"""Sensor entities for the Wecker integration."""
+"""Sensor entities for the Alarm Clock integration."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AlarmClockCoordinator
-from .entity import WeckerEntity
+from .entity import AlarmClockEntity
 
 
 async def async_setup_entry(
@@ -22,7 +22,7 @@ async def async_setup_entry(
         async_add_entities([NextTriggerSensor(coordinator)], config_subentry_id=subentry_id)
 
 
-class NextTriggerSensor(WeckerEntity, SensorEntity):
+class NextTriggerSensor(AlarmClockEntity, SensorEntity):
     """Soonest upcoming alarm, from either the weekday alarms or the one-time alarm."""
 
     _attr_icon = "mdi:alarm"
