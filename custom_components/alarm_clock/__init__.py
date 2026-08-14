@@ -26,7 +26,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hass.data.setdefault(DOMAIN, {})
+    # Singleton integration (single_instance_allowed) - hass.data[DOMAIN] only
+    # ever holds this one entry's subentries, so a fresh dict here can't drop
+    # another entry's coordinators. Rebuilding from scratch (rather than
+    # setdefault + add) means a subentry removed since the last setup can't
+    # leave a stale coordinator behind if async_unload_entry's cleanup ever
+    # misses it (e.g. a subentry deleted between unload and this setup).
+    hass.data[DOMAIN] = {}
 
     device_registry = dr.async_get(hass)
     for subentry_id, subentry in entry.subentries.items():
@@ -66,8 +72,12 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        for subentry_id in list(entry.subentries):
-            coordinator: AlarmClockCoordinator | None = hass.data[DOMAIN].pop(subentry_id, None)
-            if coordinator is not None:
-                coordinator.async_shutdown()
+        # Shut down every coordinator we own, not just ones still listed in
+        # entry.subentries - a subentry deleted since this entry was last set
+        # up is already gone from that list by the time unload runs, which
+        # would otherwise leak its coordinator (and the entity_id/device it
+        # backs) until the next full HA restart.
+        for coordinator in hass.data[DOMAIN].values():
+            coordinator.async_shutdown()
+        hass.data[DOMAIN] = {}
     return unloaded
