@@ -104,11 +104,26 @@ def _set_default_exposure(
     for subentry_id in subentry_ids:
         device = device_registry.async_get_device(identifiers={(DOMAIN, subentry_id)})
         if device is None:
+            _LOGGER.error("Alarm Clock exposure: no device for subentry %s", subentry_id)
             continue
-        for entity in er.async_entries_for_device(entity_registry, device.id):
+        entities = er.async_entries_for_device(entity_registry, device.id)
+        _LOGGER.error(
+            "Alarm Clock exposure: subentry %s device %s -> %d entities",
+            subentry_id, device.id, len(entities),
+        )
+        for entity in entities:
             should_expose = _DEFAULT_EXPOSE_BY_DOMAIN.get(entity.domain)
             if should_expose is not None:
-                async_expose_entity(hass, "conversation", entity.entity_id, should_expose)
+                try:
+                    async_expose_entity(hass, "conversation", entity.entity_id, should_expose)
+                except Exception:
+                    _LOGGER.exception(
+                        "Alarm Clock exposure: failed for %s", entity.entity_id
+                    )
+                else:
+                    _LOGGER.error(
+                        "Alarm Clock exposure: set %s -> %s", entity.entity_id, should_expose
+                    )
 
 
 async def _async_migrate_exposure_once(
