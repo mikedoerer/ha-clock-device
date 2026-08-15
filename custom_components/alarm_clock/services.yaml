@@ -25,3 +25,89 @@ stop:
   target:
     entity:
       integration: alarm_clock
+
+set_onetime:
+  name: Set one-time alarm
+  description: >-
+    Sets the time (and optionally date) of the one-time alarm and enables
+    it, atomically.
+  target:
+    entity:
+      integration: alarm_clock
+  fields:
+    time:
+      name: Time
+      description: Time the alarm should ring.
+      required: true
+      selector:
+        time:
+    date:
+      name: Date
+      description: >-
+        Date the alarm should ring on. Without a date, rolls to the next
+        occurrence of the given time (today if not yet passed, otherwise
+        tomorrow).
+      required: false
+      selector:
+        date:
+
+set_recurring:
+  name: Set recurring alarm
+  description: Sets the time for one or more weekdays and enables them, atomically.
+  target:
+    entity:
+      integration: alarm_clock
+  fields:
+    weekday:
+      name: Weekday
+      description: One or more weekdays (or "all") to set.
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+            - all
+    time:
+      name: Time
+      description: Time the alarm should ring on the given weekday(s).
+      required: true
+      selector:
+        time:
+
+delete_onetime:
+  name: Delete one-time alarm
+  description: Disables the one-time alarm without clearing its configured time.
+  target:
+    entity:
+      integration: alarm_clock
+
+delete_recurring:
+  name: Delete recurring alarm
+  description: Disables one or more weekdays without clearing their configured time.
+  target:
+    entity:
+      integration: alarm_clock
+  fields:
+    weekday:
+      name: Weekday
+      description: One or more weekdays (or "all") to disable.
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+            - all

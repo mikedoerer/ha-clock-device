@@ -186,6 +186,19 @@ class AlarmClockCoordinator:
         self._push_update()
 
     @staticmethod
+    def _next_onetime_occurrence(
+        now: datetime, alarm_time: dt_time, *, tomorrow: bool = False
+    ) -> datetime:
+        """Next local datetime for `alarm_time` - today unless already passed or `tomorrow` is forced."""
+        candidate = dt_util.start_of_local_day(now) + timedelta(days=1 if tomorrow else 0)
+        candidate = candidate.replace(
+            hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
+        )
+        if candidate <= now:
+            candidate += timedelta(days=1)
+        return candidate
+
+    @staticmethod
     def _next_occurrence_for_weekday(now: datetime, day: Weekday, alarm_time: dt_time) -> datetime:
         target_index = WEEKDAY_ORDER.index(day)
         days_ahead = (target_index - now.weekday()) % 7

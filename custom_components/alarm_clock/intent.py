@@ -29,7 +29,7 @@ named device always wins over the satellite/single-device fallbacks above.
 from __future__ import annotations
 
 import logging
-from datetime import time as dt_time, timedelta
+from datetime import time as dt_time
 from pathlib import Path
 from typing import Any
 
@@ -486,13 +486,8 @@ class AlarmClockSetOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
         else:
             # Either "heute"/"morgen" or no date slot at all (bare time) -
             # both roll forward by one day if the resulting time has passed.
-            days_ahead = 1 if relative_slot and relative_slot["value"] == "tomorrow" else 0
-            target = dt_util.start_of_local_day(now) + timedelta(days=days_ahead)
-            target = target.replace(
-                hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
-            )
-            if target <= now:
-                target += timedelta(days=1)
+            tomorrow = bool(relative_slot and relative_slot["value"] == "tomorrow")
+            target = AlarmClockCoordinator._next_onetime_occurrence(now, alarm_time, tomorrow=tomorrow)
             if target.date() == now.date():
                 day_word = "heute" if lang == "de" else "today"
             else:

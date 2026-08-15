@@ -1,8 +1,15 @@
-"""Custom services for the Alarm Clock integration: alarm_clock.snooze / alarm_clock.stop.
+"""Custom services for the Alarm Clock integration.
 
-These two actions don't map onto any single entity's native service, so
+None of these actions map onto any single entity's native service, so
 they're registered as domain-level, device-targeted services instead of
-entities (see the Phase 1 plan's Bucket A/B split).
+entities (see the Phase 1 plan's Bucket A/B split). set_onetime/set_recurring
+exist mainly as a stable, self-documenting target for the LLM conversation
+fallback (see intent.py's module docstring) - setting a schedule via voice
+already goes through the AlarmClockSetOnetime/SetRecurring sentence intents
+directly and doesn't call these; they give an assistant that couldn't match
+the sentence grammar a single, atomic "set + enable" action instead of it
+having to compose raw entity services (which is what caused the datetime
+field-name bug this was introduced to fix).
 """
 
 from __future__ import annotations
@@ -13,21 +20,85 @@ import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+)
+from homeassistant.util import dt as dt_util
 
-from .const import ATTR_DURATION, DOMAIN, SERVICE_SNOOZE, SERVICE_STOP
+from .const import (
+    ATTR_DATE,
+    ATTR_DURATION,
+    ATTR_TIME,
+    ATTR_WEEKDAY,
+    DOMAIN,
+    SERVICE_DELETE_ONETIME,
+    SERVICE_DELETE_RECURRING,
+    SERVICE_SET_ONETIME,
+    SERVICE_SET_RECURRING,
+    SERVICE_SNOOZE,
+    SERVICE_STOP,
+)
 from .coordinator import AlarmClockCoordinator
+from .models import WEEKDAY_ORDER, Weekday
+
+_TARGET_FIELDS = {
+    vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
+    vol.Optional("entity_id"): cv.entity_ids,
+}
 
 SERVICE_SCHEMA = vol.Schema(
     {
-        vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        **_TARGET_FIELDS,
         vol.Optional(ATTR_DURATION): vol.Coerce(float),
     }
 )
 
+_WEEKDAY_OR_ALL = vol.All(cv.ensure_list, [vol.In([*WEEKDAY_ORDER, "all"])])
+
+SET_ONETIME_SCHEMA = vol.Schema(
+    {
+        **_TARGET_FIELDS,
+        vol.Required(ATTR_TIME): cv.time,
+        vol.Optional(ATTR_DATE): cv.date,
+    }
+)
+
+SET_RECURRING_SCHEMA = vol.Schema(
+    {
+        **_TARGET_FIELDS,
+        vol.Required(ATTR_WEEKDAY): _WEEKDAY_OR_ALL,
+        vol.Required(ATTR_TIME): cv.time,
+    }
+)
+
+DELETE_RECURRING_SCHEMA = vol.Schema(
+    {
+        **_TARGET_FIELDS,
+        vol.Required(ATTR_WEEKDAY): _WEEKDAY_OR_ALL,
+    }
+)
+
+
+def _resolve_weekdays(values: list[str]) -> list[Weekday]:
+    if "all" in values:
+        return list(WEEKDAY_ORDER)
+    return [Weekday(value) for value in values]
+
 
 def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list[AlarmClockCoordinator]:
-    device_ids = call.data.get("device_id") or []
+    device_ids = set(call.data.get("device_id") or [])
+
+    # The LLM conversation fallback only ever sees entity_id (its device
+    # table has no device_id column), so any entity of the target device
+    # works as a target too - resolve it up to the owning device.
+    entity_registry = er.async_get(hass)
+    for entity_id in call.data.get("entity_id") or []:
+        entry = entity_registry.async_get(entity_id)
+        if entry is not None and entry.device_id is not None:
+            device_ids.add(entry.device_id)
+
     if not device_ids:
         raise ServiceValidationError("Please select an alarm clock device as target.")
 
@@ -53,7 +124,7 @@ def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list[Alarm
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
-    """Register alarm_clock.snooze and alarm_clock.stop once for the whole integration."""
+    """Register the alarm_clock.* domain services once for the whole integration."""
     if hass.services.has_service(DOMAIN, SERVICE_SNOOZE):
         return
 
@@ -67,7 +138,58 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in _coordinators_for_call(hass, call):
             await coordinator.async_stop()
 
+    async def _async_handle_set_onetime(call: ServiceCall) -> None:
+        alarm_time = call.data[ATTR_TIME]
+        alarm_date = call.data.get(ATTR_DATE)
+        for coordinator in _coordinators_for_call(hass, call):
+            now = dt_util.now()
+            if alarm_date is not None:
+                target = dt_util.start_of_local_day(now).replace(
+                    year=alarm_date.year,
+                    month=alarm_date.month,
+                    day=alarm_date.day,
+                    hour=alarm_time.hour,
+                    minute=alarm_time.minute,
+                )
+            else:
+                target = AlarmClockCoordinator._next_onetime_occurrence(now, alarm_time)
+            await coordinator.async_set_onetime_datetime(target)
+            await coordinator.async_set_onetime_enabled(True)
+
+    async def _async_handle_set_recurring(call: ServiceCall) -> None:
+        alarm_time = call.data[ATTR_TIME]
+        days = _resolve_weekdays(call.data[ATTR_WEEKDAY])
+        for coordinator in _coordinators_for_call(hass, call):
+            for day in days:
+                await coordinator.async_set_weekday_time(day, alarm_time)
+                await coordinator.async_set_weekday_enabled(day, True)
+
+    async def _async_handle_delete_onetime(call: ServiceCall) -> None:
+        for coordinator in _coordinators_for_call(hass, call):
+            await coordinator.async_set_onetime_enabled(False)
+
+    async def _async_handle_delete_recurring(call: ServiceCall) -> None:
+        days = _resolve_weekdays(call.data[ATTR_WEEKDAY])
+        for coordinator in _coordinators_for_call(hass, call):
+            for day in days:
+                await coordinator.async_set_weekday_enabled(day, False)
+
     hass.services.async_register(
         DOMAIN, SERVICE_SNOOZE, _async_handle_snooze, schema=SERVICE_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_STOP, _async_handle_stop, schema=SERVICE_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_ONETIME, _async_handle_set_onetime, schema=SET_ONETIME_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_RECURRING, _async_handle_set_recurring, schema=SET_RECURRING_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_ONETIME, _async_handle_delete_onetime, schema=SERVICE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_RECURRING,
+        _async_handle_delete_recurring,
+        schema=DELETE_RECURRING_SCHEMA,
+    )

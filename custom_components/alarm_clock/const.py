@@ -43,7 +43,14 @@ STORAGE_VERSION = 1
 # Services
 SERVICE_SNOOZE = "snooze"
 SERVICE_STOP = "stop"
+SERVICE_SET_ONETIME = "set_onetime"
+SERVICE_SET_RECURRING = "set_recurring"
+SERVICE_DELETE_ONETIME = "delete_onetime"
+SERVICE_DELETE_RECURRING = "delete_recurring"
 ATTR_DURATION = "duration"
+ATTR_TIME = "time"
+ATTR_DATE = "date"
+ATTR_WEEKDAY = "weekday"
 
 # Voice control (Assist intents)
 INTENT_SNOOZE = "AlarmClockSnooze"
