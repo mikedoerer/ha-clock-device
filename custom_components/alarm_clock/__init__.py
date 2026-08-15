@@ -17,13 +17,16 @@ from homeassistant.components.homeassistant.exposed_entities import async_expose
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, STORAGE_VERSION
 from .coordinator import AlarmClockCoordinator
 from .intent import async_setup_intents
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
+
+_EXPOSURE_MIGRATION_DONE_KEY = "done"
 
 # Only entities in these domains carry anything worth exposing to Assist -
 # schedules/switches are meant to be set via the set_onetime/set_recurring/
@@ -73,6 +76,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if new_subentry_ids:
         _set_default_exposure(hass, device_registry, new_subentry_ids)
+    await _async_migrate_exposure_once(hass, device_registry, set(entry.subentries))
 
     # All entities exist now and read straight from the coordinator, so it's
     # safe to kick off scheduling only after platform setup has completed.
@@ -105,6 +109,24 @@ def _set_default_exposure(
             should_expose = _DEFAULT_EXPOSE_BY_DOMAIN.get(entity.domain)
             if should_expose is not None:
                 async_expose_entity(hass, "conversation", entity.entity_id, should_expose)
+
+
+async def _async_migrate_exposure_once(
+    hass: HomeAssistant, device_registry: dr.DeviceRegistry, subentry_ids: set[str]
+) -> None:
+    """Apply the same exposure defaults to devices that already existed before this feature shipped.
+
+    Runs at most once ever, tracked via a Store flag - after that, only
+    _set_default_exposure (for genuinely new devices) touches exposure, so
+    this can't repeatedly clobber exposure the user changes by hand later.
+    There's no supported HA service for this (it's an internal registry
+    helper), so it has to happen here rather than via a one-off action call.
+    """
+    store = Store[dict[str, bool]](hass, STORAGE_VERSION, f"{DOMAIN}_exposure_migration")
+    if await store.async_load():
+        return
+    _set_default_exposure(hass, device_registry, subentry_ids)
+    await store.async_save({_EXPOSURE_MIGRATION_DONE_KEY: True})
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
