@@ -1,5 +1,9 @@
 language: "de"
+expansion_rules:
+  alarm_device_ref: "[(im|in der|beim|für(s| das| die)) ]{alarm_device}"
 lists:
+  alarm_device:
+    values: []
   alarm_weekday:
     values:
       - in: "montag[s]"
@@ -88,48 +92,48 @@ intents:
   AlarmClockSnooze:
     data:
       - sentences:
-          - "schlummern"
-          - "wecker schlummern"
-          - "wecker schlummer"
+          - "schlummern[ <alarm_device_ref>]"
+          - "wecker schlummern[ <alarm_device_ref>]"
+          - "wecker schlummer[ <alarm_device_ref>]"
   AlarmClockStop:
     data:
       - sentences:
-          - "wecker beenden"
-          - "wecker aus"
-          - "wecker stoppen"
-          - "wecker ausschalten"
+          - "wecker beenden[ <alarm_device_ref>]"
+          - "wecker aus[ <alarm_device_ref>]"
+          - "wecker stoppen[ <alarm_device_ref>]"
+          - "wecker ausschalten[ <alarm_device_ref>]"
   AlarmClockSetRecurring:
     data:
       - sentences:
-          - "wecker [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {alarm_weekday_bare_recurring:alarm_weekday} [um ]({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für {alarm_weekday_bare_recurring:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
+          - "wecker [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker für [jeden ]{alarm_weekday} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} (auf|um) ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker {alarm_weekday_bare_recurring:alarm_weekday} [um ]({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker für {alarm_weekday_bare_recurring:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
   AlarmClockSetOnetime:
     data:
       - sentences:
-          - "wecker ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "wecker um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {alarm_relative_day} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker {alarm_relative_day} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
-          - "wecker {alarm_weekday_bare:alarm_weekday} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "wecker am {1..31:day}[.] {alarm_month} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen]"
-          - "stelle den wecker für den {1..31:day}[.] {alarm_month} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])"
+          - "wecker ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "wecker um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker {alarm_relative_day} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker {alarm_relative_day} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker für {alarm_weekday_bare:alarm_weekday} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
+          - "wecker {alarm_weekday_bare:alarm_weekday} ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "wecker am {1..31:day}[.] {alarm_month} um ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ stellen][ <alarm_device_ref>]"
+          - "stelle den wecker für den {1..31:day}[.] {alarm_month} auf ({0..23:hour}[ uhr] [{0..59:minute}]|{0..23:hour}:{0..59:minute}[ uhr])[ <alarm_device_ref>]"
   AlarmClockDeleteRecurring:
     data:
       - sentences:
-          - "wecker [jeden ]{alarm_weekday} löschen"
-          - "lösche den wecker für [jeden ]{alarm_weekday}"
-          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} löschen"
-          - "lösche den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to}"
+          - "wecker [jeden ]{alarm_weekday} löschen[ <alarm_device_ref>]"
+          - "lösche den wecker für [jeden ]{alarm_weekday}[ <alarm_device_ref>]"
+          - "wecker jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to} löschen[ <alarm_device_ref>]"
+          - "lösche den wecker für jeden {alarm_weekday:alarm_weekday_from} bis {alarm_weekday:alarm_weekday_to}[ <alarm_device_ref>]"
   AlarmClockDeleteOnetime:
     data:
       - sentences:
-          - "wecker löschen"
-          - "lösche den wecker"
+          - "wecker löschen[ <alarm_device_ref>]"
+          - "lösche den wecker[ <alarm_device_ref>]"

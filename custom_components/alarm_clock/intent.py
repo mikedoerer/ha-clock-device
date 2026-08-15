@@ -19,6 +19,11 @@ AlarmClockDeleteRecurring/AlarmClockDeleteOnetime) has no such "currently active
 anchor, so it falls back to "the single configured alarm clock" instead -
 with multiple devices and no satellite match, it asks for clarification
 rather than guessing either way.
+
+Any sentence can also name the device explicitly ("... im Bad", "... in the
+bathroom") via the `alarm_device` list, which is regenerated on every setup
+from the currently configured subentries (see `_sync_sentence_files`) - a
+named device always wins over the satellite/single-device fallbacks above.
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ import logging
 from datetime import time as dt_time, timedelta
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent
@@ -55,18 +62,25 @@ _INSTALLED_SENTENCES_FILENAME = "alarm_clock.yaml"
 _DATA_INTENTS_REGISTERED = f"{DOMAIN}_intents_registered"
 
 
-def _sync_sentence_files(hass: HomeAssistant, last_shipped: dict[str, str]) -> tuple[bool, dict[str, str]]:
+def _sync_sentence_files(
+    hass: HomeAssistant, last_shipped: dict[str, str], device_values: list[dict[str, str]]
+) -> tuple[bool, dict[str, str]]:
     """Install/update bundled sentence files, respecting user edits/deletion.
 
     Runs in the executor - this touches the filesystem synchronously.
     `last_shipped` maps language -> the exact text we last wrote for it
     (from the Store); returns (changed_anything, updated_last_shipped).
+    `device_values` are injected as the `alarm_device` list's `values`,
+    so the bundled text (and thus the change-detection below) reflects
+    whichever alarm clocks are currently configured.
     """
     changed_any = False
     updated = dict(last_shipped)
     for source in _BUNDLED_SENTENCES_DIR.glob("*.yaml"):
         language = source.stem
-        bundled_text = source.read_text(encoding="utf-8")
+        template = yaml.safe_load(source.read_text(encoding="utf-8"))
+        template["lists"]["alarm_device"]["values"] = device_values
+        bundled_text = yaml.dump(template, allow_unicode=True, sort_keys=False)
         target_dir = Path(hass.config.path("custom_sentences", language))
         target = target_dir / _INSTALLED_SENTENCES_FILENAME
         previously_shipped = last_shipped.get(language)
@@ -99,8 +113,13 @@ def _sync_sentence_files(hass: HomeAssistant, last_shipped: dict[str, str]) -> t
 async def _async_install_default_sentences(hass: HomeAssistant) -> None:
     store = Store[dict[str, Any]](hass, STORAGE_VERSION, f"{DOMAIN}_sentences")
     last_shipped = await store.async_load() or {}
+    coordinators: list[AlarmClockCoordinator] = list(hass.data.get(DOMAIN, {}).values())
+    device_values = [
+        {"in": coordinator.name.lower(), "out": coordinator.subentry_id}
+        for coordinator in coordinators
+    ]
     changed_any, updated = await hass.async_add_executor_job(
-        _sync_sentence_files, hass, last_shipped
+        _sync_sentence_files, hass, last_shipped, device_values
     )
     if updated != last_shipped:
         await store.async_save(updated)
@@ -127,8 +146,20 @@ def _localized(texts: dict[str, str], language: str | None) -> str:
     return texts.get((language or "de")[:2], texts["de"])
 
 
+def _resolve_named_device(intent_obj: intent.Intent) -> AlarmClockCoordinator | None:
+    """If the sentence named a device explicitly ("... im Bad"), resolve it directly."""
+    device_slot = intent_obj.slots.get("alarm_device")
+    if not device_slot:
+        return None
+    return intent_obj.hass.data.get(DOMAIN, {}).get(device_slot["value"])
+
+
 def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
     """Pick which alarm clock device a snooze/stop voice command targets."""
+    named = _resolve_named_device(intent_obj)
+    if named is not None:
+        return named
+
     coordinators: list[AlarmClockCoordinator] = list(
         intent_obj.hass.data.get(DOMAIN, {}).values()
     )
@@ -156,6 +187,10 @@ def _resolve_coordinator_for_schedule(intent_obj: intent.Intent) -> AlarmClockCo
     clock if there's only one, else ask for clarification instead of
     guessing.
     """
+    named = _resolve_named_device(intent_obj)
+    if named is not None:
+        return named
+
     coordinators: list[AlarmClockCoordinator] = list(
         intent_obj.hass.data.get(DOMAIN, {}).values()
     )
