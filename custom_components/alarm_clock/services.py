@@ -80,6 +80,13 @@ DELETE_RECURRING_SCHEMA = vol.Schema(
     }
 )
 
+DELETE_ONETIME_SCHEMA = vol.Schema(
+    {
+        **_TARGET_FIELDS,
+        vol.Optional(ATTR_DATE): cv.date,
+    }
+)
+
 
 def _resolve_weekdays(values: list[str]) -> list[Weekday]:
     if "all" in values:
@@ -162,14 +169,20 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             await coordinator.async_add_recurring(days, alarm_time)
 
     async def _async_handle_delete_onetime(call: ServiceCall) -> None:
+        target_date = call.data.get(ATTR_DATE)
         for coordinator in _coordinators_for_call(hass, call):
             onetime_alarms = coordinator.onetime_alarms
+            if target_date is not None:
+                onetime_alarms = [
+                    alarm for alarm in onetime_alarms if alarm.alarm_date == target_date
+                ]
             if not onetime_alarms:
                 continue
             if len(onetime_alarms) > 1:
                 raise ServiceValidationError(
-                    f"{coordinator.name} has {len(onetime_alarms)} one-time alarms set - "
-                    "delete_onetime can't tell which one you mean."
+                    f"{coordinator.name} has {len(onetime_alarms)} one-time alarms set"
+                    + (f" on {target_date}" if target_date else "")
+                    + " - delete_onetime can't tell which one you mean without a more specific date."
                 )
             await coordinator.async_delete_alarm(onetime_alarms[0].id)
 
@@ -189,7 +202,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SET_RECURRING, _async_handle_set_recurring, schema=SET_RECURRING_SCHEMA
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_DELETE_ONETIME, _async_handle_delete_onetime, schema=SERVICE_SCHEMA
+        DOMAIN, SERVICE_DELETE_ONETIME, _async_handle_delete_onetime, schema=DELETE_ONETIME_SCHEMA
     )
     hass.services.async_register(
         DOMAIN,

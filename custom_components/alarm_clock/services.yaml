@@ -83,10 +83,24 @@ set_recurring:
 
 delete_onetime:
   name: Delete one-time alarm
-  description: Disables the one-time alarm without clearing its configured time.
+  description: >-
+    Deletes the one-time alarm. If more than one is currently set on this
+    alarm clock, pass date to say which one to delete - without a date,
+    this only succeeds when exactly one one-time alarm is set, and errors
+    otherwise rather than guessing.
   target:
     entity:
       integration: alarm_clock
+  fields:
+    date:
+      name: Date
+      description: >-
+        Date of the specific one-time alarm to delete. Required whenever
+        more than one one-time alarm is currently set on the target alarm
+        clock.
+      required: false
+      selector:
+        date:
 
 delete_recurring:
   name: Delete recurring alarm

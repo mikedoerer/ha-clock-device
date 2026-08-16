@@ -98,3 +98,5 @@ intents:
       - sentences:
           - "delete the alarm[ <alarm_device_ref>]"
           - "delete alarm[ <alarm_device_ref>]"
+          - "delete the alarm for the {1..31:day}[st|nd|rd|th] of {alarm_month}[ <alarm_device_ref>]"
+          - "delete the one time alarm for the {1..31:day}[st|nd|rd|th] of {alarm_month}[ <alarm_device_ref>]"

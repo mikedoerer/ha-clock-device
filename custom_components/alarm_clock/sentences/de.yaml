@@ -137,3 +137,5 @@ intents:
       - sentences:
           - "wecker löschen[ <alarm_device_ref>]"
           - "lösche den wecker[ <alarm_device_ref>]"
+          - "wecker am {1..31:day}[.] {alarm_month} löschen[ <alarm_device_ref>]"
+          - "lösche den wecker für den {1..31:day}[.] {alarm_month}[ <alarm_device_ref>]"

@@ -148,6 +148,10 @@ _TEXT_AMBIGUOUS_ONETIME = {
     "de": "Es gibt mehrere einmalige Wecker - das kann ich per Sprache nicht eindeutig zuordnen.",
     "en": "There are multiple one-time alarms - I can't tell which one you mean.",
 }
+_TEXT_NO_ONETIME_ALARM_ON_DATE = {
+    "de": "Es ist kein einmaliger Wecker an diesem Datum gestellt.",
+    "en": "No one-time alarm is set for that date.",
+}
 
 
 def _localized(texts: dict[str, str], language: str | None) -> str:
@@ -520,8 +524,23 @@ class AlarmClockDeleteOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
     ) -> str:
         lang = (intent_obj.language or "de")[:2]
         onetime_alarms = coordinator.onetime_alarms
-        if not onetime_alarms:
+
+        day_slot = intent_obj.slots.get("day")
+        if day_slot:
+            month = int(_slot_value(intent_obj, "alarm_month"))
+            day = int(day_slot["value"])
+            onetime_alarms = [
+                alarm
+                for alarm in onetime_alarms
+                if alarm.alarm_date
+                and alarm.alarm_date.month == month
+                and alarm.alarm_date.day == day
+            ]
+            if not onetime_alarms:
+                raise intent.IntentHandleError(_localized(_TEXT_NO_ONETIME_ALARM_ON_DATE, lang))
+        elif not onetime_alarms:
             raise intent.IntentHandleError(_localized(_TEXT_NO_ONETIME_ALARM, lang))
+
         if len(onetime_alarms) > 1:
             raise intent.IntentHandleError(_localized(_TEXT_AMBIGUOUS_ONETIME, lang))
 
