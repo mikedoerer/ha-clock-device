@@ -35,6 +35,7 @@ const I18N = {
     close: "Schließen",
     stop: "Beenden",
     snooze: "Schlummern",
+    snoozedFor: "Schlummert noch",
   },
   en: {
     recurring: "Recurring",
@@ -58,6 +59,7 @@ const I18N = {
     close: "Close",
     stop: "Stop",
     snooze: "Snooze",
+    snoozedFor: "Snoozing for",
   },
 };
 
@@ -115,13 +117,20 @@ const CARD_STYLE = `
     font-size: 1.2em; font-weight: 500;
     color: var(--ha-card-header-color, var(--primary-text-color));
   }
-  .ringing-actions { display: flex; gap: 8px; margin-bottom: 12px; }
-  .ringing-actions button {
+  .ringing-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .snooze-countdown-row {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--primary-text-color); font-size: 0.95em;
+  }
+  .snooze-countdown-row ha-icon { color: var(--state-icon-active-color, var(--primary-color)); }
+  .snooze-countdown { font-weight: 600; }
+  .action-buttons { display: flex; gap: 8px; }
+  .action-buttons button {
     flex: 1; padding: 10px; border-radius: 8px; border: none;
     font: inherit; cursor: pointer;
   }
-  .ringing-actions .stop-btn { background: var(--error-color, #db4437); color: #fff; }
-  .ringing-actions .snooze-btn {
+  .action-buttons .stop-btn { background: var(--error-color, #db4437); color: #fff; }
+  .action-buttons .snooze-btn {
     background: var(--primary-color); color: var(--text-primary-color, #fff);
   }
   .alarm-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
@@ -275,8 +284,14 @@ class AlarmClockCard extends HTMLElement {
             </button>
           </div>
           <div class="ringing-actions" hidden>
-            <button type="button" class="stop-btn">${t.stop}</button>
-            <button type="button" class="snooze-btn">${t.snooze}</button>
+            <div class="snooze-countdown-row" hidden>
+              <ha-icon icon="mdi:alarm-snooze"></ha-icon>
+              <span>${t.snoozedFor} <span class="snooze-countdown"></span></span>
+            </div>
+            <div class="action-buttons">
+              <button type="button" class="stop-btn">${t.stop}</button>
+              <button type="button" class="snooze-btn">${t.snooze}</button>
+            </div>
           </div>
           <div class="alarm-list"></div>
           <div class="no-alarms" hidden>${t.noAlarms}</div>
@@ -383,7 +398,20 @@ class AlarmClockCard extends HTMLElement {
     root.querySelector(".device-name").textContent = deviceNameFromFriendly(stateObj.attributes.friendly_name);
 
     const ringingState = this._hass.states[this._siblingEntityId("binary_sensor", "ringing")];
-    root.querySelector(".ringing-actions").hidden = !(ringingState && ringingState.state === "on");
+    const snoozedState = this._hass.states[this._siblingEntityId("binary_sensor", "snoozed")];
+    const isRinging = ringingState && ringingState.state === "on";
+    const isSnoozed = snoozedState && snoozedState.state === "on";
+    root.querySelector(".ringing-actions").hidden = !(isRinging || isSnoozed);
+
+    const snoozeUntilRaw = isSnoozed && snoozedState.attributes && snoozedState.attributes.snooze_until;
+    this._snoozeUntil = snoozeUntilRaw ? new Date(snoozeUntilRaw) : null;
+    this._updateSnoozeCountdown();
+    if (this._snoozeUntil && !this._snoozeInterval) {
+      this._snoozeInterval = setInterval(() => this._updateSnoozeCountdown(), 1000);
+    } else if (!this._snoozeUntil && this._snoozeInterval) {
+      clearInterval(this._snoozeInterval);
+      this._snoozeInterval = null;
+    }
 
     const alarms = stateObj.attributes.alarms || [];
     const alarmsJson = JSON.stringify(alarms);
@@ -411,6 +439,25 @@ class AlarmClockCard extends HTMLElement {
       .join("");
   }
 
+  _updateSnoozeCountdown() {
+    const row = this.shadowRoot.querySelector(".snooze-countdown-row");
+    if (!row) return;
+    if (!this._snoozeUntil) {
+      row.hidden = true;
+      return;
+    }
+    const remainingMs = this._snoozeUntil.getTime() - Date.now();
+    if (remainingMs <= 0) {
+      row.hidden = true;
+      return;
+    }
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    row.hidden = false;
+    row.querySelector(".snooze-countdown").textContent = `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
   _openModal() {
     this._clearError("modal");
     const modalOverlay = this.shadowRoot.querySelector(".modal-overlay");
@@ -436,6 +483,10 @@ class AlarmClockCard extends HTMLElement {
     if (this._escapeHandler) {
       document.removeEventListener("keydown", this._escapeHandler);
       this._escapeHandler = null;
+    }
+    if (this._snoozeInterval) {
+      clearInterval(this._snoozeInterval);
+      this._snoozeInterval = null;
     }
   }
 

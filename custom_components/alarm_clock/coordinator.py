@@ -66,6 +66,7 @@ class AlarmClockCoordinator:
         self.state: AlarmState = AlarmState.IDLE
         self.next_trigger: datetime | None = None
         self._next_trigger_alarm: Alarm | None = None
+        self.snooze_until: datetime | None = None
 
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
@@ -360,13 +361,14 @@ class AlarmClockCoordinator:
         duration = duration_override or self.snooze_duration
         if self._unsub_snooze is not None:
             self._unsub_snooze()
-        self._unsub_snooze = async_track_point_in_time(
-            self.hass, self._async_snooze_elapsed, dt_util.now() + duration
-        )
+        wake_at = dt_util.now() + duration
+        self.snooze_until = wake_at
+        self._unsub_snooze = async_track_point_in_time(self.hass, self._async_snooze_elapsed, wake_at)
         self._push_update()
 
     async def _async_snooze_elapsed(self, now: datetime) -> None:
         self._unsub_snooze = None
+        self.snooze_until = None
         self.state = AlarmState.RINGING
         await self.async_start_ringing()
 
@@ -375,6 +377,7 @@ class AlarmClockCoordinator:
             return
         await self._async_silence()
         self.state = AlarmState.IDLE
+        self.snooze_until = None
         self._push_update()
 
     async def _async_silence(self) -> None:
