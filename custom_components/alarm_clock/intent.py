@@ -140,6 +140,14 @@ _TEXT_AMBIGUOUS_DEVICE = {
     "de": "Es gibt mehrere Wecker - das kann ich per Sprache nicht eindeutig zuordnen.",
     "en": "There are multiple alarm clocks - I can't tell which one you mean.",
 }
+_TEXT_NO_ONETIME_ALARM = {
+    "de": "Es ist kein einmaliger Wecker gestellt.",
+    "en": "No one-time alarm is set.",
+}
+_TEXT_AMBIGUOUS_ONETIME = {
+    "de": "Es gibt mehrere einmalige Wecker - das kann ich per Sprache nicht eindeutig zuordnen.",
+    "en": "There are multiple one-time alarms - I can't tell which one you mean.",
+}
 
 
 def _localized(texts: dict[str, str], language: str | None) -> str:
@@ -408,9 +416,7 @@ class AlarmClockSetRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
         lang = (intent_obj.language or "de")[:2]
         days, when = _resolve_recurring_days(intent_obj, lang)
 
-        for day in days:
-            await coordinator.async_set_weekday_time(day, alarm_time)
-            await coordinator.async_set_weekday_enabled(day, True)
+        await coordinator.async_add_recurring(days, alarm_time)
 
         time_str = f"{alarm_time.hour:02d}:{alarm_time.minute:02d}"
         if lang == "de":
@@ -434,8 +440,7 @@ class AlarmClockDeleteRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
         lang = (intent_obj.language or "de")[:2]
         days, when = _resolve_recurring_days(intent_obj, lang)
 
-        for day in days:
-            await coordinator.async_set_weekday_enabled(day, False)
+        await coordinator.async_delete_recurring(days)
 
         if lang == "de":
             return f"{coordinator.name}: {when} gelöscht."
@@ -493,8 +498,7 @@ class AlarmClockSetOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
             else:
                 day_word = "morgen" if lang == "de" else "tomorrow"
 
-        await coordinator.async_set_onetime_datetime(target)
-        await coordinator.async_set_onetime_enabled(True)
+        await coordinator.async_add_onetime(target)
 
         time_str = f"{alarm_time.hour:02d}:{alarm_time.minute:02d}"
         if lang == "de":
@@ -514,8 +518,14 @@ class AlarmClockDeleteOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
     async def _async_apply(
         self, coordinator: AlarmClockCoordinator, intent_obj: intent.Intent
     ) -> str:
-        await coordinator.async_set_onetime_enabled(False)
         lang = (intent_obj.language or "de")[:2]
+        onetime_alarms = coordinator.onetime_alarms
+        if not onetime_alarms:
+            raise intent.IntentHandleError(_localized(_TEXT_NO_ONETIME_ALARM, lang))
+        if len(onetime_alarms) > 1:
+            raise intent.IntentHandleError(_localized(_TEXT_AMBIGUOUS_ONETIME, lang))
+
+        await coordinator.async_delete_alarm(onetime_alarms[0].id)
         if lang == "de":
             return f"{coordinator.name}: einmaliger Wecker gelöscht."
         return f"{coordinator.name}: one-time alarm deleted."

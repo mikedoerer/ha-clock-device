@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import time as dt_time
 from enum import StrEnum
 
 
@@ -37,11 +35,3 @@ class AlarmState(StrEnum):
     IDLE = "idle"
     RINGING = "ringing"
     SNOOZED = "snoozed"
-
-
-@dataclass
-class WeekdayAlarm:
-    """Independent enabled/time pair for a single weekday."""
-
-    enabled: bool = False
-    alarm_time: dt_time = dt_time(7, 0)

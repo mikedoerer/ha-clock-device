@@ -153,26 +153,30 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 )
             else:
                 target = AlarmClockCoordinator._next_onetime_occurrence(now, alarm_time)
-            await coordinator.async_set_onetime_datetime(target)
-            await coordinator.async_set_onetime_enabled(True)
+            await coordinator.async_add_onetime(target)
 
     async def _async_handle_set_recurring(call: ServiceCall) -> None:
         alarm_time = call.data[ATTR_TIME]
         days = _resolve_weekdays(call.data[ATTR_WEEKDAY])
         for coordinator in _coordinators_for_call(hass, call):
-            for day in days:
-                await coordinator.async_set_weekday_time(day, alarm_time)
-                await coordinator.async_set_weekday_enabled(day, True)
+            await coordinator.async_add_recurring(days, alarm_time)
 
     async def _async_handle_delete_onetime(call: ServiceCall) -> None:
         for coordinator in _coordinators_for_call(hass, call):
-            await coordinator.async_set_onetime_enabled(False)
+            onetime_alarms = coordinator.onetime_alarms
+            if not onetime_alarms:
+                continue
+            if len(onetime_alarms) > 1:
+                raise ServiceValidationError(
+                    f"{coordinator.name} has {len(onetime_alarms)} one-time alarms set - "
+                    "delete_onetime can't tell which one you mean."
+                )
+            await coordinator.async_delete_alarm(onetime_alarms[0].id)
 
     async def _async_handle_delete_recurring(call: ServiceCall) -> None:
         days = _resolve_weekdays(call.data[ATTR_WEEKDAY])
         for coordinator in _coordinators_for_call(hass, call):
-            for day in days:
-                await coordinator.async_set_weekday_enabled(day, False)
+            await coordinator.async_delete_recurring(days)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SNOOZE, _async_handle_snooze, schema=SERVICE_SCHEMA

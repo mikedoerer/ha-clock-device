@@ -32,7 +32,8 @@ from .const import (
     STORAGE_VERSION,
     signal_update,
 )
-from .models import WEEKDAY_ORDER, AlarmState, Weekday, WeekdayAlarm
+from .models import WEEKDAY_ORDER, AlarmState, Weekday
+from .store import Alarm, AlarmSqliteStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,16 +43,21 @@ _MEDIA_IDLE_STATES = {MediaPlayerState.IDLE, MediaPlayerState.PAUSED, MediaPlaye
 class AlarmClockCoordinator:
     """Owns schedule + ringing state for one virtual alarm clock (= one subentry/device)."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: ConfigSubentry,
+        alarm_store: AlarmSqliteStore,
+    ) -> None:
         self.hass = hass
         self.entry = entry
         self.subentry = subentry
         self.subentry_id = subentry.subentry_id
         self.name: str = subentry.data.get("name", subentry.title)
+        self._alarm_store = alarm_store
 
-        self.weekdays: dict[Weekday, WeekdayAlarm] = {day: WeekdayAlarm() for day in WEEKDAY_ORDER}
-        self.onetime_datetime: datetime | None = None
-        self.onetime_enabled: bool = False
+        self.alarms: list[Alarm] = []
         self.snooze_duration = timedelta(
             minutes=subentry.data.get(CONF_SNOOZE_DURATION_MINUTES, DEFAULT_SNOOZE_DURATION_MINUTES)
         )
@@ -59,82 +65,127 @@ class AlarmClockCoordinator:
 
         self.state: AlarmState = AlarmState.IDLE
         self.next_trigger: datetime | None = None
-        self._next_trigger_is_onetime = False
+        self._next_trigger_alarm: Alarm | None = None
 
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
         self._unsub_snooze = None
 
+        # Snooze duration / volume only now - the schedule (weekdays +
+        # one-time alarms) lives in `_alarm_store` (SQLite) instead.
         self._store = Store[dict[str, Any]](hass, STORAGE_VERSION, f"{DOMAIN}.{self.subentry_id}")
 
     # ------------------------------------------------------------------
     # persistence - survives HA restarts independently of entity restore
     # ------------------------------------------------------------------
     async def async_load(self) -> None:
-        """Load persisted alarm configuration, if any."""
+        """Load persisted snooze/volume settings and the alarm schedule, if any."""
         data = await self._store.async_load()
-        if not data:
-            return
-        for day_value, day_data in data.get("weekdays", {}).items():
-            try:
-                day = Weekday(day_value)
-            except ValueError:
-                continue
-            self.weekdays[day].enabled = bool(day_data.get("enabled", False))
-            self.weekdays[day].alarm_time = dt_time.fromisoformat(
-                day_data.get("time", "07:00:00")
-            )
-        self.onetime_enabled = bool(data.get("onetime_enabled", False))
-        onetime_raw = data.get("onetime_datetime")
-        self.onetime_datetime = dt_util.parse_datetime(onetime_raw) if onetime_raw else None
-        snooze_minutes = data.get("snooze_duration_minutes")
-        if snooze_minutes is not None:
-            self.snooze_duration = timedelta(minutes=snooze_minutes)
-        volume = data.get("volume")
-        if volume is not None:
-            self.volume = volume
+        if data:
+            snooze_minutes = data.get("snooze_duration_minutes")
+            if snooze_minutes is not None:
+                self.snooze_duration = timedelta(minutes=snooze_minutes)
+            volume = data.get("volume")
+            if volume is not None:
+                self.volume = volume
+        self.alarms = await self._alarm_store.async_load_for_device(self.subentry_id)
 
     async def _async_save(self) -> None:
         await self._store.async_save(
             {
-                "weekdays": {
-                    day.value: {
-                        "enabled": alarm.enabled,
-                        "time": alarm.alarm_time.isoformat(),
-                    }
-                    for day, alarm in self.weekdays.items()
-                },
-                "onetime_enabled": self.onetime_enabled,
-                "onetime_datetime": (
-                    self.onetime_datetime.isoformat() if self.onetime_datetime else None
-                ),
                 "snooze_duration_minutes": self.snooze_duration.total_seconds() / 60,
                 "volume": self.volume,
             }
         )
 
     # ------------------------------------------------------------------
-    # setters used by entities (persist + recompute schedule)
+    # schedule setters - add/delete alarm rows, then persist + recompute
     # ------------------------------------------------------------------
-    async def async_set_weekday_enabled(self, day: Weekday, enabled: bool) -> None:
-        self.weekdays[day].enabled = enabled
-        await self._async_save()
+    async def async_add_recurring(self, days: list[Weekday], alarm_time: dt_time) -> None:
+        """Arm `alarm_time` on each of `days` - adds a new alarm unless an identical one already exists."""
+        for day in days:
+            existing = next(
+                (
+                    alarm
+                    for alarm in self.alarms
+                    if alarm.kind == "recurring"
+                    and alarm.weekday == day.value
+                    and alarm.alarm_time == alarm_time
+                ),
+                None,
+            )
+            if existing is not None:
+                if not existing.enabled:
+                    updated = await self._alarm_store.async_set_enabled(existing.id, True)
+                    self._replace_alarm(updated)
+                continue
+            new_alarm = await self._alarm_store.async_insert(
+                self.subentry_id, "recurring", alarm_time, weekday=day.value
+            )
+            self.alarms.append(new_alarm)
         self.async_recompute_next_trigger()
 
-    async def async_set_weekday_time(self, day: Weekday, value: dt_time) -> None:
-        self.weekdays[day].alarm_time = value
-        await self._async_save()
+    async def async_delete_recurring(self, days: list[Weekday]) -> list[Alarm]:
+        """Remove every recurring alarm on any of `days`, regardless of time."""
+        deleted: list[Alarm] = []
+        for day in days:
+            deleted_ids = await self._alarm_store.async_delete_where(
+                self.subentry_id, "recurring", weekday=day.value
+            )
+            deleted.extend(alarm for alarm in self.alarms if alarm.id in deleted_ids)
+            self.alarms = [
+                alarm
+                for alarm in self.alarms
+                if not (alarm.kind == "recurring" and alarm.weekday == day.value)
+            ]
+        self.async_recompute_next_trigger()
+        return deleted
+
+    async def async_add_onetime(self, target: datetime) -> None:
+        """Add a one-time alarm at `target` - adds a new alarm unless an identical one already exists."""
+        target = dt_util.as_local(target)
+        existing = next(
+            (
+                alarm
+                for alarm in self.alarms
+                if alarm.kind == "onetime"
+                and alarm.alarm_date == target.date()
+                and alarm.alarm_time == target.time().replace(second=0, microsecond=0)
+            ),
+            None,
+        )
+        if existing is not None:
+            if not existing.enabled:
+                updated = await self._alarm_store.async_set_enabled(existing.id, True)
+                self._replace_alarm(updated)
+        else:
+            new_alarm = await self._alarm_store.async_insert(
+                self.subentry_id, "onetime", target.time(), date=target.date()
+            )
+            self.alarms.append(new_alarm)
         self.async_recompute_next_trigger()
 
-    async def async_set_onetime_enabled(self, enabled: bool) -> None:
-        self.onetime_enabled = enabled
-        await self._async_save()
+    async def async_delete_alarm(self, alarm_id: int) -> None:
+        """Remove a single alarm row by id (used to resolve one-time-alarm ambiguity)."""
+        await self._alarm_store.async_delete(alarm_id)
+        self.alarms = [alarm for alarm in self.alarms if alarm.id != alarm_id]
         self.async_recompute_next_trigger()
 
-    async def async_set_onetime_datetime(self, value: datetime) -> None:
-        self.onetime_datetime = dt_util.as_local(value)
-        await self._async_save()
-        self.async_recompute_next_trigger()
+    def _replace_alarm(self, updated: Alarm) -> None:
+        self.alarms = [updated if alarm.id == updated.id else alarm for alarm in self.alarms]
+
+    @property
+    def onetime_alarms(self) -> list[Alarm]:
+        """Every currently-armed one-time alarm, soonest first.
+
+        There's no sentence slot to name a specific one-time alarm to
+        delete, so callers resolve 0/1/many the same way device selection
+        already does elsewhere in this integration.
+        """
+        return sorted(
+            (alarm for alarm in self.alarms if alarm.kind == "onetime" and alarm.enabled),
+            key=lambda alarm: (alarm.date, alarm.time),
+        )
 
     async def async_set_snooze_duration(self, minutes: float) -> None:
         self.snooze_duration = timedelta(minutes=minutes)
@@ -157,28 +208,39 @@ class AlarmClockCoordinator:
     # ------------------------------------------------------------------
     @callback
     def async_recompute_next_trigger(self) -> None:
-        """Recompute the soonest future trigger from all armed weekdays + the one-time alarm."""
+        """Recompute the soonest future trigger across every enabled alarm row.
+
+        Reads only the in-memory `self.alarms` list (never touches SQLite) -
+        this stays a `@callback` so it can run straight off any mutator.
+        """
         now = dt_util.now()
-        recurring_candidates: list[datetime] = [
-            self._next_occurrence_for_weekday(now, day, alarm.alarm_time)
-            for day, alarm in self.weekdays.items()
-            if alarm.enabled
-        ]
-        recurring_candidate = min(recurring_candidates) if recurring_candidates else None
-
-        onetime_candidate = None
-        if self.onetime_enabled and self.onetime_datetime and self.onetime_datetime > now:
-            onetime_candidate = self.onetime_datetime
-
-        candidates = [c for c in (recurring_candidate, onetime_candidate) if c is not None]
-        new_next = min(candidates) if candidates else None
-        self._next_trigger_is_onetime = new_next is not None and new_next == onetime_candidate
+        candidates: list[tuple[datetime, Alarm]] = []
+        for alarm in self.alarms:
+            if not alarm.enabled:
+                continue
+            if alarm.kind == "recurring":
+                occurrence = self._next_occurrence_for_weekday(
+                    now, Weekday(alarm.weekday), alarm.alarm_time
+                )
+                candidates.append((occurrence, alarm))
+            else:
+                occurrence = dt_util.as_local(
+                    datetime.combine(alarm.alarm_date, alarm.alarm_time)
+                )
+                if occurrence > now:
+                    candidates.append((occurrence, alarm))
 
         if self._unsub_next_alarm is not None:
             self._unsub_next_alarm()
             self._unsub_next_alarm = None
 
+        if candidates:
+            new_next, next_alarm = min(candidates, key=lambda item: item[0])
+        else:
+            new_next, next_alarm = None, None
+
         self.next_trigger = new_next
+        self._next_trigger_alarm = next_alarm
         if new_next is not None:
             self._unsub_next_alarm = async_track_point_in_time(
                 self.hass, self._async_handle_trigger, new_next
@@ -211,13 +273,13 @@ class AlarmClockCoordinator:
         return candidate
 
     async def _async_handle_trigger(self, now: datetime) -> None:
-        was_onetime = self._next_trigger_is_onetime
+        fired_alarm = self._next_trigger_alarm
         self.state = AlarmState.RINGING
         await self.async_start_ringing()
-        if was_onetime:
-            # one-time alarms auto-disarm after firing; recurring alarms repeat.
-            self.onetime_enabled = False
-            await self._async_save()
+        if fired_alarm is not None and fired_alarm.kind == "onetime":
+            # one-time alarms are removed once they fire; recurring alarms repeat.
+            await self._alarm_store.async_delete(fired_alarm.id)
+            self.alarms = [alarm for alarm in self.alarms if alarm.id != fired_alarm.id]
         self.async_recompute_next_trigger()
 
     # ------------------------------------------------------------------
