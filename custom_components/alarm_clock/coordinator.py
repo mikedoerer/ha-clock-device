@@ -377,15 +377,18 @@ class AlarmClockCoordinator:
     async def async_snooze(self, duration_override: timedelta | None = None) -> None:
         if self.state == AlarmState.IDLE:
             return
-        await self._async_silence()
+        self._cancel_watchers()
         self.state = AlarmState.SNOOZED
         duration = duration_override or self.snooze_duration
-        if self._unsub_snooze is not None:
-            self._unsub_snooze()
         wake_at = dt_util.now() + duration
         self.snooze_until = wake_at
         self._unsub_snooze = async_track_point_in_time(self.hass, self._async_snooze_elapsed, wake_at)
+        # State/UI update first, then the slow part (media_player/light calls
+        # that can block for many seconds on an unresponsive device) - a
+        # button press or voice command should show as snoozed immediately
+        # rather than waiting on however long the actual device takes.
         self._push_update()
+        await self._async_silence_output()
 
     async def _async_snooze_elapsed(self, now: datetime) -> None:
         self._unsub_snooze = None
@@ -396,19 +399,23 @@ class AlarmClockCoordinator:
     async def async_stop(self) -> None:
         if self.state == AlarmState.IDLE:
             return
-        await self._async_silence()
+        self._cancel_watchers()
         self.state = AlarmState.IDLE
         self.snooze_until = None
         self._push_update()
+        await self._async_silence_output()
 
-    async def _async_silence(self) -> None:
-        """Stop sound and light - shared by snooze (temporary) and stop (final)."""
+    def _cancel_watchers(self) -> None:
+        """Cancel the ringing-loop watcher and any pending snooze-wake timer - instant, no I/O."""
         if self._unsub_media_watch is not None:
             self._unsub_media_watch()
             self._unsub_media_watch = None
         if self._unsub_snooze is not None:
             self._unsub_snooze()
             self._unsub_snooze = None
+
+    async def _async_silence_output(self) -> None:
+        """Stop sound and light - the slow, blocking-on-real-hardware part of silencing."""
         media_player = self._media_player_entity_id()
         if media_player:
             await self.hass.services.async_call(
