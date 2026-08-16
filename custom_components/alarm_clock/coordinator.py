@@ -8,6 +8,7 @@ from typing import Any
 
 from homeassistant.components.media_player import MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
@@ -110,6 +111,24 @@ class AlarmClockCoordinator:
         )
 
     async def _async_handle_snooze_button_event(self, event) -> None:
+        # A state_changed event on this entity doesn't always mean a fresh
+        # press. Two false-positive patterns seen live on real ESPHome
+        # hardware: (1) the device going unavailable and reconnecting (e.g.
+        # after an HA restart) fires a transition through unavailable/
+        # unknown; (2) a flaky connection re-announcing its last cached
+        # event verbatim - same state *value*, new state_changed event,
+        # with neither side ever touching unavailable/unknown. A genuine
+        # new press always carries a distinct (sub-second-precision)
+        # timestamp, so both are filtered by requiring a real, different
+        # value on both sides of the transition.
+        old_state = event.data.get("old_state")
+        new_state = event.data.get("new_state")
+        if old_state is None or old_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+        if old_state.state == new_state.state:
+            return
         await self.async_snooze()
 
     async def _async_save(self) -> None:
