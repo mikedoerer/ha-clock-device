@@ -104,14 +104,16 @@ delete_onetime:
 
 delete_recurring:
   name: Delete recurring alarm
-  description: Disables one or more weekdays without clearing their configured time.
+  description: >-
+    Deletes every recurring alarm currently set on the given weekday(s),
+    including all of them if more than one time is armed on the same day.
   target:
     entity:
       integration: alarm_clock
   fields:
     weekday:
       name: Weekday
-      description: One or more weekdays (or "all") to disable.
+      description: One or more weekdays (or "all") to delete every alarm on.
       required: true
       selector:
         select:
@@ -125,3 +127,24 @@ delete_recurring:
             - sat
             - sun
             - all
+
+delete_alarm:
+  name: Delete alarm
+  description: >-
+    Deletes a single alarm (recurring or one-time) by its id, regardless
+    of weekday/date - use this to remove one specific entry from a longer
+    list, e.g. from the alarms attribute of the next-alarm sensor.
+  target:
+    entity:
+      integration: alarm_clock
+  fields:
+    alarm_id:
+      name: Alarm ID
+      description: >-
+        The id of the alarm to delete, as listed in the alarms attribute
+        of the target alarm clock's next-alarm sensor.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box

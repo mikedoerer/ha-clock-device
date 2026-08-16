@@ -44,10 +44,12 @@ SERVICE_SET_ONETIME = "set_onetime"
 SERVICE_SET_RECURRING = "set_recurring"
 SERVICE_DELETE_ONETIME = "delete_onetime"
 SERVICE_DELETE_RECURRING = "delete_recurring"
+SERVICE_DELETE_ALARM = "delete_alarm"
 ATTR_DURATION = "duration"
 ATTR_TIME = "time"
 ATTR_DATE = "date"
 ATTR_WEEKDAY = "weekday"
+ATTR_ALARM_ID = "alarm_id"
 
 # Voice control (Assist intents)
 INTENT_SNOOZE = "AlarmClockSnooze"

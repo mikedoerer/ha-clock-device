@@ -12,9 +12,11 @@ than surgically diffing subentries.
 from __future__ import annotations
 
 from datetime import time as dt_time
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -30,6 +32,16 @@ from .store import AlarmSqliteStore
 
 _EXPOSURE_MIGRATION_DONE_KEY = "done"
 _SCHEDULE_MIGRATION_DONE_KEY = "done"
+
+# Serves custom_components/alarm_clock/www/ (the bundled dashboard card) at a
+# fixed URL - registered once per HA process (`_DATA_STATIC_REGISTERED`,
+# not per config-entry reload) since re-registering the same static path
+# raises. Not auto-added as a Lovelace resource - see README for the
+# one-time manual step, kept simple rather than poking the lovelace storage
+# collection's semi-internal API.
+_DATA_STATIC_REGISTERED = f"{DOMAIN}_static_registered"
+_STATIC_URL_BASE = f"/{DOMAIN}_static"
+_WWW_PATH = Path(__file__).parent / "www"
 
 # Only entities in these domains carry anything worth exposing to Assist -
 # schedules are meant to be set via the set_onetime/set_recurring/etc.
@@ -63,6 +75,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # leave a stale coordinator behind if async_unload_entry's cleanup ever
     # misses it (e.g. a subentry deleted between unload and this setup).
     hass.data[DOMAIN] = {}
+
+    if not hass.data.get(_DATA_STATIC_REGISTERED):
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(_STATIC_URL_BASE, str(_WWW_PATH), cache_headers=False)]
+        )
+        hass.data[_DATA_STATIC_REGISTERED] = True
 
     alarm_store = AlarmSqliteStore(hass)
     await alarm_store.async_setup()

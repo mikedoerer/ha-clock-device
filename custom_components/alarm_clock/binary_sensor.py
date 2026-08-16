@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -48,3 +50,9 @@ class SnoozedBinarySensor(AlarmClockEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self.coordinator.state == AlarmState.SNOOZED
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.coordinator.snooze_until is None:
+            return None
+        return {"snooze_until": self.coordinator.snooze_until}
