@@ -18,7 +18,6 @@ const I18N = {
     onetime: "Einmalig",
     add: "Hinzufügen",
     noAlarms: "Keine Weckzeiten gestellt.",
-    nextAlarmNone: "Kein Wecker gestellt",
     weekdayShort: { mon: "Mo", tue: "Di", wed: "Mi", thu: "Do", fri: "Fr", sat: "Sa", sun: "So" },
     weekdayLong: {
       mon: "Montag", tue: "Dienstag", wed: "Mittwoch", thu: "Donnerstag",
@@ -42,7 +41,6 @@ const I18N = {
     onetime: "One-time",
     add: "Add",
     noAlarms: "No alarms set.",
-    nextAlarmNone: "No alarm set",
     weekdayShort: { mon: "Mo", tue: "Tu", wed: "We", thu: "Th", fri: "Fr", sat: "Sa", sun: "Su" },
     weekdayLong: {
       mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
@@ -117,12 +115,6 @@ const CARD_STYLE = `
     font-size: 1.2em; font-weight: 500;
     color: var(--ha-card-header-color, var(--primary-text-color));
   }
-  .next-alarm {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 1.1em; color: var(--primary-text-color);
-    margin-bottom: 12px;
-  }
-  .next-alarm ha-icon { color: var(--state-icon-active-color, var(--primary-color)); }
   .ringing-actions { display: flex; gap: 8px; margin-bottom: 12px; }
   .ringing-actions button {
     flex: 1; padding: 10px; border-radius: 8px; border: none;
@@ -229,7 +221,7 @@ class AlarmClockCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 5;
+    return 4;
   }
 
   static getConfigElement() {
@@ -281,10 +273,6 @@ class AlarmClockCard extends HTMLElement {
             <button type="button" class="open-add-btn" aria-label="${t.addAlarm}" title="${t.addAlarm}">
               <ha-icon icon="mdi:plus"></ha-icon>
             </button>
-          </div>
-          <div class="next-alarm">
-            <ha-icon icon="mdi:alarm"></ha-icon>
-            <span class="next-alarm-text"></span>
           </div>
           <div class="ringing-actions" hidden>
             <button type="button" class="stop-btn">${t.stop}</button>
@@ -393,16 +381,6 @@ class AlarmClockCard extends HTMLElement {
     const root = this.shadowRoot;
 
     root.querySelector(".device-name").textContent = deviceNameFromFriendly(stateObj.attributes.friendly_name);
-
-    const nextAlarmText = root.querySelector(".next-alarm-text");
-    if (stateObj.state && stateObj.state !== "unknown" && stateObj.state !== "unavailable") {
-      const dt = new Date(stateObj.state);
-      nextAlarmText.textContent = dt.toLocaleString(this._hass.language || undefined, {
-        weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
-      });
-    } else {
-      nextAlarmText.textContent = t.nextAlarmNone;
-    }
 
     const ringingState = this._hass.states[this._siblingEntityId("binary_sensor", "ringing")];
     root.querySelector(".ringing-actions").hidden = !(ringingState && ringingState.state === "on");
