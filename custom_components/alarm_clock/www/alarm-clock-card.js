@@ -32,6 +32,8 @@ const I18N = {
     noEntity: "Bitte in den Karteneinstellungen einen Wecker auswählen.",
     error: "Fehler",
     delete: "Löschen",
+    addAlarm: "Wecker hinzufügen",
+    close: "Schließen",
   },
   en: {
     recurring: "Recurring",
@@ -52,6 +54,8 @@ const I18N = {
     noEntity: "Please select an alarm clock in the card settings.",
     error: "Error",
     delete: "Delete",
+    addAlarm: "Add alarm",
+    close: "Close",
   },
 };
 
@@ -99,7 +103,31 @@ const CARD_STYLE = `
   }
   .alarm-row button.delete-btn:hover { color: var(--error-color, #db4437); }
   .no-alarms { color: var(--secondary-text-color); font-style: italic; margin-bottom: 16px; }
-  .add-alarm { border-top: 1px solid var(--divider-color); padding-top: 12px; }
+  .open-add-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; padding: 8px; border-radius: 8px;
+    border: 1px dashed var(--divider-color); background: none;
+    color: var(--primary-color); cursor: pointer; font: inherit;
+  }
+  .open-add-btn:hover { background: var(--secondary-background-color); }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10; padding: 16px; box-sizing: border-box;
+  }
+  .modal-content {
+    background: var(--card-background-color, white); color: var(--primary-text-color);
+    border-radius: 12px; padding: 16px; width: 100%; max-width: 340px;
+    box-shadow: var(--dialog-box-shadow, 0 4px 24px rgba(0, 0, 0, 0.3));
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; font-size: 1.1em;
+  }
+  .modal-header button {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    color: var(--secondary-text-color); display: flex; align-items: center;
+  }
   .mode-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
   .mode-toggle button {
     flex: 1; padding: 6px; border-radius: 8px; border: 1px solid var(--divider-color);
@@ -210,36 +238,54 @@ class AlarmClockCard extends HTMLElement {
           </div>
           <div class="alarm-list"></div>
           <div class="no-alarms" hidden>${t.noAlarms}</div>
-          <div class="add-alarm">
-            <div class="mode-toggle">
-              <button type="button" class="mode-btn active" data-mode="recurring">${t.recurring}</button>
-              <button type="button" class="mode-btn" data-mode="onetime">${t.onetime}</button>
-            </div>
-            <div class="recurring-form">
-              <div class="weekday-chips">
-                ${WEEKDAY_ORDER.map((day) => `<button type="button" data-day="${day}">${t.weekdayShort[day]}</button>`).join("")}
-              </div>
-              <div class="form-row">
-                <input type="time" class="recurring-time" />
-              </div>
-              <button type="button" class="add-btn recurring-add">${t.add}</button>
-            </div>
-            <div class="onetime-form" hidden>
-              <div class="form-row">
-                <input type="date" class="onetime-date" />
-                <input type="time" class="onetime-time" />
-              </div>
-              <button type="button" class="add-btn onetime-add">${t.add}</button>
-            </div>
-            <div class="error-message" hidden></div>
-          </div>
+          <button type="button" class="open-add-btn">
+            <ha-icon icon="mdi:plus"></ha-icon> ${t.addAlarm}
+          </button>
         </div>
       </ha-card>
+      <div class="modal-overlay" hidden>
+        <div class="modal-content">
+          <div class="modal-header">
+            <span>${t.addAlarm}</span>
+            <button type="button" class="modal-close" aria-label="${t.close}" title="${t.close}">
+              <ha-icon icon="mdi:close"></ha-icon>
+            </button>
+          </div>
+          <div class="mode-toggle">
+            <button type="button" class="mode-btn active" data-mode="recurring">${t.recurring}</button>
+            <button type="button" class="mode-btn" data-mode="onetime">${t.onetime}</button>
+          </div>
+          <div class="recurring-form">
+            <div class="weekday-chips">
+              ${WEEKDAY_ORDER.map((day) => `<button type="button" data-day="${day}">${t.weekdayShort[day]}</button>`).join("")}
+            </div>
+            <div class="form-row">
+              <input type="time" class="recurring-time" />
+            </div>
+            <button type="button" class="add-btn recurring-add">${t.add}</button>
+          </div>
+          <div class="onetime-form" hidden>
+            <div class="form-row">
+              <input type="date" class="onetime-date" />
+              <input type="time" class="onetime-time" />
+            </div>
+            <button type="button" class="add-btn onetime-add">${t.add}</button>
+          </div>
+          <div class="error-message" hidden></div>
+        </div>
+      </div>
     `;
 
     const root = this.shadowRoot;
     const recurringForm = root.querySelector(".recurring-form");
     const onetimeForm = root.querySelector(".onetime-form");
+    const modalOverlay = root.querySelector(".modal-overlay");
+
+    root.querySelector(".open-add-btn").addEventListener("click", () => this._openModal());
+    root.querySelector(".modal-close").addEventListener("click", () => this._closeModal());
+    modalOverlay.addEventListener("click", (ev) => {
+      if (ev.target === modalOverlay) this._closeModal();
+    });
 
     root.querySelectorAll(".mode-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -313,6 +359,34 @@ class AlarmClockCard extends HTMLElement {
       .join("");
   }
 
+  _openModal() {
+    this._clearError();
+    const modalOverlay = this.shadowRoot.querySelector(".modal-overlay");
+    modalOverlay.hidden = false;
+    this._escapeHandler = (ev) => {
+      if (ev.key === "Escape") this._closeModal();
+    };
+    document.addEventListener("keydown", this._escapeHandler);
+    const firstField = modalOverlay.querySelector(".weekday-chips button");
+    if (firstField) firstField.focus();
+  }
+
+  _closeModal() {
+    const modalOverlay = this.shadowRoot.querySelector(".modal-overlay");
+    modalOverlay.hidden = true;
+    if (this._escapeHandler) {
+      document.removeEventListener("keydown", this._escapeHandler);
+      this._escapeHandler = null;
+    }
+  }
+
+  disconnectedCallback() {
+    if (this._escapeHandler) {
+      document.removeEventListener("keydown", this._escapeHandler);
+      this._escapeHandler = null;
+    }
+  }
+
   _clearError() {
     const el = this.shadowRoot.querySelector(".error-message");
     el.hidden = true;
@@ -361,6 +435,7 @@ class AlarmClockCard extends HTMLElement {
     this._selectedDays.clear();
     this.shadowRoot.querySelectorAll(".weekday-chips button.selected").forEach((b) => b.classList.remove("selected"));
     timeInput.value = "";
+    this._closeModal();
   }
 
   async _addOnetime() {
@@ -382,6 +457,7 @@ class AlarmClockCard extends HTMLElement {
     }
     dateInput.value = "";
     timeInput.value = "";
+    this._closeModal();
   }
 
   async _deleteAlarm(alarmId) {
