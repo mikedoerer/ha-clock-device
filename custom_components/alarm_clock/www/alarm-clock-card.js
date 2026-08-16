@@ -397,6 +397,7 @@ class AlarmClockCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    this._config = {};
   }
 
   setConfig(config) {
@@ -410,7 +411,7 @@ class AlarmClockCardEditor extends HTMLElement {
   }
 
   _render() {
-    if (!this._hass) return;
+    if (!this._hass || !this._config) return;
     if (!this._picker) {
       this.shadowRoot.innerHTML = `<div style="padding: 4px 0;"></div>`;
       this._picker = document.createElement("ha-entity-picker");
