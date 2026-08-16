@@ -24,6 +24,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Input device (Assist satellite)",
+            "snooze_button_entity_id": "Snooze button (event entity, optional) - any event triggers snooze, e.g. a Voice PE button press",
             "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",
@@ -37,6 +38,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Input device (Assist satellite)",
+            "snooze_button_entity_id": "Snooze button (event entity, optional) - any event triggers snooze, e.g. a Voice PE button press",
             "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",

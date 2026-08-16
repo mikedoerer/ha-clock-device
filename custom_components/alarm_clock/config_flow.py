@@ -41,6 +41,7 @@ from .const import (
     CONF_LIGHT_RGB_COLOR,
     CONF_MEDIA,
     CONF_NAME,
+    CONF_SNOOZE_BUTTON_ENTITY_ID,
     CONF_SNOOZE_DURATION_MINUTES,
     DEFAULT_LIGHT_BRIGHTNESS_PCT,
     DEFAULT_LIGHT_RGB_COLOR,
@@ -64,6 +65,10 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
                 CONF_INPUT_SATELLITE_ENTITY_ID,
                 default=defaults.get(CONF_INPUT_SATELLITE_ENTITY_ID),
             ): EntitySelector(EntitySelectorConfig(domain="assist_satellite")),
+            vol.Optional(
+                CONF_SNOOZE_BUTTON_ENTITY_ID,
+                default=defaults.get(CONF_SNOOZE_BUTTON_ENTITY_ID),
+            ): EntitySelector(EntitySelectorConfig(domain="event")),
             vol.Required(
                 CONF_MEDIA,
                 default=defaults.get(CONF_MEDIA),

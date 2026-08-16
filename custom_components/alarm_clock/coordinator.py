@@ -25,6 +25,7 @@ from .const import (
     CONF_MEDIA,
     CONF_MEDIA_CONTENT_ID,
     CONF_MEDIA_CONTENT_TYPE,
+    CONF_SNOOZE_BUTTON_ENTITY_ID,
     CONF_SNOOZE_DURATION_MINUTES,
     DEFAULT_SNOOZE_DURATION_MINUTES,
     DEFAULT_VOLUME,
@@ -71,6 +72,7 @@ class AlarmClockCoordinator:
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
         self._unsub_snooze = None
+        self._unsub_snooze_button = None
 
         # Snooze duration / volume only now - the schedule (weekdays +
         # one-time alarms) lives in `_alarm_store` (SQLite) instead.
@@ -90,6 +92,25 @@ class AlarmClockCoordinator:
             if volume is not None:
                 self.volume = volume
         self.alarms = await self._alarm_store.async_load_for_device(self.subentry_id)
+        self._setup_snooze_button_listener()
+
+    def _setup_snooze_button_listener(self) -> None:
+        """Any event on the configured button entity snoozes - press type doesn't matter.
+
+        Unlike the older button-snooze blueprint (which requires picking
+        specific event types like double_press), this reacts to literally
+        any event the entity reports, since an `event` entity's state is
+        just the timestamp of its last event and changes on every one.
+        """
+        button_entity_id = self.subentry.data.get(CONF_SNOOZE_BUTTON_ENTITY_ID)
+        if not button_entity_id:
+            return
+        self._unsub_snooze_button = async_track_state_change_event(
+            self.hass, [button_entity_id], self._async_handle_snooze_button_event
+        )
+
+    async def _async_handle_snooze_button_event(self, event) -> None:
+        await self.async_snooze()
 
     async def _async_save(self) -> None:
         await self._store.async_save(
@@ -356,15 +377,18 @@ class AlarmClockCoordinator:
     async def async_snooze(self, duration_override: timedelta | None = None) -> None:
         if self.state == AlarmState.IDLE:
             return
-        await self._async_silence()
+        self._cancel_watchers()
         self.state = AlarmState.SNOOZED
         duration = duration_override or self.snooze_duration
-        if self._unsub_snooze is not None:
-            self._unsub_snooze()
         wake_at = dt_util.now() + duration
         self.snooze_until = wake_at
         self._unsub_snooze = async_track_point_in_time(self.hass, self._async_snooze_elapsed, wake_at)
+        # State/UI update first, then the slow part (media_player/light calls
+        # that can block for many seconds on an unresponsive device) - a
+        # button press or voice command should show as snoozed immediately
+        # rather than waiting on however long the actual device takes.
         self._push_update()
+        await self._async_silence_output()
 
     async def _async_snooze_elapsed(self, now: datetime) -> None:
         self._unsub_snooze = None
@@ -375,19 +399,23 @@ class AlarmClockCoordinator:
     async def async_stop(self) -> None:
         if self.state == AlarmState.IDLE:
             return
-        await self._async_silence()
+        self._cancel_watchers()
         self.state = AlarmState.IDLE
         self.snooze_until = None
         self._push_update()
+        await self._async_silence_output()
 
-    async def _async_silence(self) -> None:
-        """Stop sound and light - shared by snooze (temporary) and stop (final)."""
+    def _cancel_watchers(self) -> None:
+        """Cancel the ringing-loop watcher and any pending snooze-wake timer - instant, no I/O."""
         if self._unsub_media_watch is not None:
             self._unsub_media_watch()
             self._unsub_media_watch = None
         if self._unsub_snooze is not None:
             self._unsub_snooze()
             self._unsub_snooze = None
+
+    async def _async_silence_output(self) -> None:
+        """Stop sound and light - the slow, blocking-on-real-hardware part of silencing."""
         media_player = self._media_player_entity_id()
         if media_player:
             await self.hass.services.async_call(
@@ -406,9 +434,15 @@ class AlarmClockCoordinator:
     # lifecycle
     # ------------------------------------------------------------------
     def async_shutdown(self) -> None:
-        for unsub in (self._unsub_next_alarm, self._unsub_media_watch, self._unsub_snooze):
+        for unsub in (
+            self._unsub_next_alarm,
+            self._unsub_media_watch,
+            self._unsub_snooze,
+            self._unsub_snooze_button,
+        ):
             if unsub is not None:
                 unsub()
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
         self._unsub_snooze = None
+        self._unsub_snooze_button = None

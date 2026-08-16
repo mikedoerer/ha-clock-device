@@ -24,6 +24,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
+            "snooze_button_entity_id": "Schlummer-Button (Event-Entität, optional) - jedes Event löst Schlummern aus, z. B. ein Tastendruck am Voice PE",
             "media": "Ausgabegerät + Wecker-Sound (Medien durchsuchen)",
             "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
             "light_rgb_color": "Lichtfarbe",
@@ -37,6 +38,7 @@
           "data": {
             "name": "Name",
             "input_satellite_entity_id": "Eingabegerät (Assist-Satellit)",
+            "snooze_button_entity_id": "Schlummer-Button (Event-Entität, optional) - jedes Event löst Schlummern aus, z. B. ein Tastendruck am Voice PE",
             "media": "Ausgabegerät + Wecker-Sound (Medien durchsuchen)",
             "light_entity_ids": "Licht(er), die beim Klingeln angehen (optional)",
             "light_rgb_color": "Lichtfarbe",
