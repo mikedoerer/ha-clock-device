@@ -34,6 +34,8 @@ const I18N = {
     delete: "Löschen",
     addAlarm: "Wecker hinzufügen",
     close: "Schließen",
+    stop: "Beenden",
+    snooze: "Schlummern",
   },
   en: {
     recurring: "Recurring",
@@ -56,6 +58,8 @@ const I18N = {
     delete: "Delete",
     addAlarm: "Add alarm",
     close: "Close",
+    stop: "Stop",
+    snooze: "Snooze",
   },
 };
 
@@ -72,23 +76,62 @@ function formatAlarmLabel(alarm, t) {
   return `${day}. ${monthName} ${year} – ${alarm.time}`;
 }
 
+function deviceNameFromFriendly(friendlyName) {
+  // Strips the translated entity name ("Nächster Alarm" / "Next alarm") that
+  // has_entity_name appends after the device name - covers both languages
+  // regardless of which one is currently active, since this repo only ships
+  // German + English translations (others fall back to the English string).
+  return (friendlyName || "").replace(/\s*(Nächster Alarm|Next alarm)\s*$/i, "").trim();
+}
+
+function nextOccurrenceFor(alarm, now) {
+  const [hour, minute] = alarm.time.split(":").map(Number);
+  if (alarm.kind === "recurring") {
+    const targetIdx = WEEKDAY_ORDER.indexOf(alarm.weekday);
+    const mondayIndexedToday = (now.getDay() + 6) % 7; // JS Sunday=0 -> Monday=0..Sunday=6
+    const daysAhead = (targetIdx - mondayIndexedToday + 7) % 7;
+    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead, hour, minute, 0, 0);
+    if (candidate <= now) candidate.setDate(candidate.getDate() + 7);
+    return candidate;
+  }
+  const [year, month, day] = (alarm.date || "").split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1, hour, minute, 0, 0);
+}
+
 function sortAlarms(alarms) {
-  return [...alarms].sort((a, b) => {
-    const keyA = a.kind === "recurring" ? `0-${WEEKDAY_ORDER.indexOf(a.weekday)}-${a.time}` : `1-${a.date}-${a.time}`;
-    const keyB = b.kind === "recurring" ? `0-${WEEKDAY_ORDER.indexOf(b.weekday)}-${b.time}` : `1-${b.date}-${b.time}`;
-    return keyA < keyB ? -1 : keyA > keyB ? 1 : 0;
-  });
+  const now = new Date();
+  return [...alarms]
+    .map((alarm) => ({ alarm, next: nextOccurrenceFor(alarm, now) }))
+    .sort((a, b) => a.next - b.next)
+    .map((entry) => entry.alarm);
 }
 
 const CARD_STYLE = `
   :host { display: block; }
   ha-card { padding: 16px; }
+  .card-header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .device-name {
+    font-size: 1.2em; font-weight: 500;
+    color: var(--ha-card-header-color, var(--primary-text-color));
+  }
   .next-alarm {
     display: flex; align-items: center; gap: 8px;
     font-size: 1.1em; color: var(--primary-text-color);
     margin-bottom: 12px;
   }
   .next-alarm ha-icon { color: var(--state-icon-active-color, var(--primary-color)); }
+  .ringing-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .ringing-actions button {
+    flex: 1; padding: 10px; border-radius: 8px; border: none;
+    font: inherit; cursor: pointer;
+  }
+  .ringing-actions .stop-btn { background: var(--error-color, #db4437); color: #fff; }
+  .ringing-actions .snooze-btn {
+    background: var(--primary-color); color: var(--text-primary-color, #fff);
+  }
   .alarm-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
   .alarm-row {
     display: flex; align-items: center; gap: 8px;
@@ -104,10 +147,9 @@ const CARD_STYLE = `
   .alarm-row button.delete-btn:hover { color: var(--error-color, #db4437); }
   .no-alarms { color: var(--secondary-text-color); font-style: italic; margin-bottom: 16px; }
   .open-add-btn {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    width: 100%; padding: 8px; border-radius: 8px;
-    border: 1px dashed var(--divider-color); background: none;
-    color: var(--primary-color); cursor: pointer; font: inherit;
+    background: none; border: none; cursor: pointer; padding: 6px;
+    border-radius: 50%; color: var(--primary-color); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
   }
   .open-add-btn:hover { background: var(--secondary-background-color); }
   .modal-overlay {
@@ -158,7 +200,9 @@ const CARD_STYLE = `
     background: var(--primary-color); color: var(--text-primary-color, #fff);
     cursor: pointer; font: inherit;
   }
-  .error-message { color: var(--error-color, #db4437); margin-top: 8px; font-size: 0.9em; }
+  .card-error-message, .modal-error-message {
+    color: var(--error-color, #db4437); margin-top: 8px; font-size: 0.9em;
+  }
   [hidden] { display: none !important; }
 `;
 
@@ -232,15 +276,23 @@ class AlarmClockCard extends HTMLElement {
       <style>${CARD_STYLE}</style>
       <ha-card>
         <div class="card-content">
+          <div class="card-header-row">
+            <span class="device-name"></span>
+            <button type="button" class="open-add-btn" aria-label="${t.addAlarm}" title="${t.addAlarm}">
+              <ha-icon icon="mdi:plus"></ha-icon>
+            </button>
+          </div>
           <div class="next-alarm">
             <ha-icon icon="mdi:alarm"></ha-icon>
             <span class="next-alarm-text"></span>
           </div>
+          <div class="ringing-actions" hidden>
+            <button type="button" class="stop-btn">${t.stop}</button>
+            <button type="button" class="snooze-btn">${t.snooze}</button>
+          </div>
           <div class="alarm-list"></div>
           <div class="no-alarms" hidden>${t.noAlarms}</div>
-          <button type="button" class="open-add-btn">
-            <ha-icon icon="mdi:plus"></ha-icon> ${t.addAlarm}
-          </button>
+          <div class="card-error-message" hidden></div>
         </div>
       </ha-card>
       <div class="modal-overlay" hidden>
@@ -271,7 +323,7 @@ class AlarmClockCard extends HTMLElement {
             </div>
             <button type="button" class="add-btn onetime-add">${t.add}</button>
           </div>
-          <div class="error-message" hidden></div>
+          <div class="modal-error-message" hidden></div>
         </div>
       </div>
     `;
@@ -294,7 +346,7 @@ class AlarmClockCard extends HTMLElement {
         const isRecurring = btn.dataset.mode === "recurring";
         recurringForm.hidden = !isRecurring;
         onetimeForm.hidden = isRecurring;
-        this._clearError();
+        this._clearError("modal");
       });
     });
 
@@ -317,12 +369,31 @@ class AlarmClockCard extends HTMLElement {
       const btn = ev.target.closest(".delete-btn");
       if (btn) this._deleteAlarm(parseInt(btn.dataset.id, 10));
     });
+    root.querySelector(".stop-btn").addEventListener("click", () => {
+      this._callService("stop", {}, "card").catch(() => {});
+    });
+    root.querySelector(".snooze-btn").addEventListener("click", () => {
+      this._callService("snooze", {}, "card").catch(() => {});
+    });
 
     this._built = true;
   }
 
+  _siblingEntityId(domain, suffix) {
+    // Deterministic - entity.py always names entities
+    // "<domain>.<slugified device name>_<key>", and this._config.entity is
+    // always the "..._next_trigger" sensor, so stripping/replacing that
+    // suffix gives every other entity of the same device without needing
+    // the frontend's device/entity registry helpers.
+    const deviceSlug = (this._config.entity || "").replace(/^sensor\./, "").replace(/_next_trigger$/, "");
+    return `${domain}.${deviceSlug}_${suffix}`;
+  }
+
   _updateDynamic(stateObj, t) {
     const root = this.shadowRoot;
+
+    root.querySelector(".device-name").textContent = deviceNameFromFriendly(stateObj.attributes.friendly_name);
+
     const nextAlarmText = root.querySelector(".next-alarm-text");
     if (stateObj.state && stateObj.state !== "unknown" && stateObj.state !== "unavailable") {
       const dt = new Date(stateObj.state);
@@ -332,6 +403,9 @@ class AlarmClockCard extends HTMLElement {
     } else {
       nextAlarmText.textContent = t.nextAlarmNone;
     }
+
+    const ringingState = this._hass.states[this._siblingEntityId("binary_sensor", "ringing")];
+    root.querySelector(".ringing-actions").hidden = !(ringingState && ringingState.state === "on");
 
     const alarms = stateObj.attributes.alarms || [];
     const alarmsJson = JSON.stringify(alarms);
@@ -360,7 +434,7 @@ class AlarmClockCard extends HTMLElement {
   }
 
   _openModal() {
-    this._clearError();
+    this._clearError("modal");
     const modalOverlay = this.shadowRoot.querySelector(".modal-overlay");
     modalOverlay.hidden = false;
     this._escapeHandler = (ev) => {
@@ -387,20 +461,24 @@ class AlarmClockCard extends HTMLElement {
     }
   }
 
-  _clearError() {
-    const el = this.shadowRoot.querySelector(".error-message");
+  _errorElement(scope) {
+    return this.shadowRoot.querySelector(scope === "modal" ? ".modal-error-message" : ".card-error-message");
+  }
+
+  _clearError(scope = "card") {
+    const el = this._errorElement(scope);
     el.hidden = true;
     el.textContent = "";
   }
 
-  _showError(message) {
-    const el = this.shadowRoot.querySelector(".error-message");
+  _showError(message, scope = "card") {
+    const el = this._errorElement(scope);
     el.hidden = false;
     el.textContent = message;
   }
 
-  async _callService(service, data) {
-    this._clearError();
+  async _callService(service, data, scope = "card") {
+    this._clearError(scope);
     const t = textsFor(this._hass);
     try {
       await this._hass.callService("alarm_clock", service, {
@@ -408,7 +486,7 @@ class AlarmClockCard extends HTMLElement {
         ...data,
       });
     } catch (err) {
-      this._showError(`${t.error}: ${(err && err.message) || err}`);
+      this._showError(`${t.error}: ${(err && err.message) || err}`, scope);
       throw err;
     }
   }
@@ -416,19 +494,20 @@ class AlarmClockCard extends HTMLElement {
   async _addRecurring() {
     const t = textsFor(this._hass);
     if (this._selectedDays.size === 0) {
-      this._showError(t.selectWeekday);
+      this._showError(t.selectWeekday, "modal");
       return;
     }
     const timeInput = this.shadowRoot.querySelector(".recurring-time");
     if (!timeInput.value) {
-      this._showError(t.fillTime);
+      this._showError(t.fillTime, "modal");
       return;
     }
     try {
-      await this._callService("set_recurring", {
-        weekday: Array.from(this._selectedDays),
-        time: timeInput.value,
-      });
+      await this._callService(
+        "set_recurring",
+        { weekday: Array.from(this._selectedDays), time: timeInput.value },
+        "modal"
+      );
     } catch {
       return;
     }
@@ -443,15 +522,15 @@ class AlarmClockCard extends HTMLElement {
     const dateInput = this.shadowRoot.querySelector(".onetime-date");
     const timeInput = this.shadowRoot.querySelector(".onetime-time");
     if (!dateInput.value) {
-      this._showError(t.fillDate);
+      this._showError(t.fillDate, "modal");
       return;
     }
     if (!timeInput.value) {
-      this._showError(t.fillTime);
+      this._showError(t.fillTime, "modal");
       return;
     }
     try {
-      await this._callService("set_onetime", { date: dateInput.value, time: timeInput.value });
+      await this._callService("set_onetime", { date: dateInput.value, time: timeInput.value }, "modal");
     } catch {
       return;
     }
