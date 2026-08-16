@@ -55,6 +55,16 @@ Not yet listed in the official HACS store - add it as a HACS "custom repository"
 
 On first start, the integration also automatically copies the voice commands to `config/custom_sentences/` (see [Voice control](#voice-control)) - no further step needed. For snooze via a hardware button (e.g. Home Assistant Voice PE), import the [button snooze blueprint](#button-snooze-blueprint-phase-3) separately.
 
+## Dashboard card
+
+A bundled Lovelace card (`custom_components/alarm_clock/www/alarm-clock-card.js`) gives one device's schedule a proper UI, without needing per-alarm entities: it shows the next alarm, lists every currently armed alarm (recurring and one-time) with a delete button per row, and a small form to add a new recurring or one-time alarm. It's plain JavaScript, no build step, and works entirely through the same `alarm_clock.*` services voice control uses (including the new `delete_alarm`, which removes one specific alarm by id - the card's per-row delete button - independent of `delete_recurring`'s per-weekday and `delete_onetime`'s ambiguity-refusing scope).
+
+The integration serves the file itself (at `/alarm_clock_static/alarm-clock-card.js`) but does **not** auto-register it as a dashboard resource - add it once:
+
+1. *Settings → Dashboards → top-right ⋮ → Resources → Add resource* - URL `/alarm_clock_static/alarm-clock-card.js`, type "JavaScript module".
+2. Edit any dashboard → *Add card → search "Alarm Clock"* (or add manually with `type: custom:alarm-clock-card`).
+3. In the card's settings, pick the alarm clock's "Next alarm" sensor (`sensor.<device>_next_trigger`) - that's the only field needed; the card reads the device name and its full schedule from that one entity.
+
 ## Manual verification (Phase 1)
 
 - After creating a device, its 8 entities (`Snooze duration`, `Volume`, `Ringing`, `Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - the three buttons are under "Controls", `Snooze duration`/`Volume` under "Configuration". There's no schedule entity to configure here - arm the schedule via voice/services (see Phase 2 below).

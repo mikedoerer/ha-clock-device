@@ -9,7 +9,12 @@ already goes through the AlarmClockSetOnetime/SetRecurring sentence intents
 directly and doesn't call these; they give an assistant that couldn't match
 the sentence grammar a single, atomic "set + enable" action instead of it
 having to compose raw entity services (which is what caused the datetime
-field-name bug this was introduced to fix).
+field-name bug this was introduced to fix). delete_alarm is different - it
+exists for the dashboard card (see `www/alarm-clock-card.js`), which lists
+every armed alarm (from the `alarms` attribute of the next-alarm sensor)
+with a per-row delete button; targeting a single row by its id sidesteps
+delete_recurring/delete_onetime's weekday/date-scoped (and, for
+delete_onetime, ambiguity-refusing) semantics entirely.
 """
 
 from __future__ import annotations
@@ -28,11 +33,13 @@ from homeassistant.helpers import (
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_ALARM_ID,
     ATTR_DATE,
     ATTR_DURATION,
     ATTR_TIME,
     ATTR_WEEKDAY,
     DOMAIN,
+    SERVICE_DELETE_ALARM,
     SERVICE_DELETE_ONETIME,
     SERVICE_DELETE_RECURRING,
     SERVICE_SET_ONETIME,
@@ -84,6 +91,13 @@ DELETE_ONETIME_SCHEMA = vol.Schema(
     {
         **_TARGET_FIELDS,
         vol.Optional(ATTR_DATE): cv.date,
+    }
+)
+
+DELETE_ALARM_SCHEMA = vol.Schema(
+    {
+        **_TARGET_FIELDS,
+        vol.Required(ATTR_ALARM_ID): vol.Coerce(int),
     }
 )
 
@@ -191,6 +205,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in _coordinators_for_call(hass, call):
             await coordinator.async_delete_recurring(days)
 
+    async def _async_handle_delete_alarm(call: ServiceCall) -> None:
+        alarm_id = call.data[ATTR_ALARM_ID]
+        for coordinator in _coordinators_for_call(hass, call):
+            if not any(alarm.id == alarm_id for alarm in coordinator.alarms):
+                raise ServiceValidationError(f"{coordinator.name} has no alarm with id {alarm_id}.")
+            await coordinator.async_delete_alarm(alarm_id)
+
     hass.services.async_register(
         DOMAIN, SERVICE_SNOOZE, _async_handle_snooze, schema=SERVICE_SCHEMA
     )
@@ -209,4 +230,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_DELETE_RECURRING,
         _async_handle_delete_recurring,
         schema=DELETE_RECURRING_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_ALARM, _async_handle_delete_alarm, schema=DELETE_ALARM_SCHEMA
     )
