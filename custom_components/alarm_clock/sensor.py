@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -34,3 +35,21 @@ class NextTriggerSensor(AlarmClockEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self.coordinator.next_trigger
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The full schedule - there's no per-alarm entity, so it's surfaced here instead."""
+        return {
+            "alarms": [
+                {
+                    "id": alarm.id,
+                    "kind": alarm.kind,
+                    "weekday": alarm.weekday,
+                    "date": alarm.date,
+                    "time": alarm.time,
+                    "enabled": alarm.enabled,
+                    "label": alarm.label,
+                }
+                for alarm in self.coordinator.alarms
+            ]
+        }

@@ -11,33 +11,48 @@ than surgically diffing subentries.
 
 from __future__ import annotations
 
+from datetime import time as dt_time
+from typing import Any
+
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, PLATFORMS, STORAGE_VERSION
 from .coordinator import AlarmClockCoordinator
 from .intent import async_setup_intents
+from .models import WEEKDAY_ORDER
 from .services import async_setup_services
+from .store import AlarmSqliteStore
 
 _EXPOSURE_MIGRATION_DONE_KEY = "done"
+_SCHEDULE_MIGRATION_DONE_KEY = "done"
 
 # Only entities in these domains carry anything worth exposing to Assist -
-# schedules/switches are meant to be set via the set_onetime/set_recurring/
-# etc. services (voice or LLM fallback), not poked at directly. Any domain
-# not listed here (currently just "button") is left at whatever HA's own
+# schedules are meant to be set via the set_onetime/set_recurring/etc.
+# services (voice or LLM fallback), not poked at directly. Any domain not
+# listed here (currently just "button") is left at whatever HA's own
 # default computes, since it doesn't matter either way.
 _DEFAULT_EXPOSE_BY_DOMAIN = {
     "binary_sensor": True,
     "sensor": True,
     "number": True,
-    "time": False,
-    "datetime": False,
-    "switch": False,
-    "button": False,
 }
+
+# unique_id suffix -> entity domain, for the weekday/onetime slot entities
+# that existed before the SQLite schedule store (see
+# `_async_migrate_schedule_to_sqlite_once`). Removed from the entity
+# registry once migrated - HA doesn't auto-purge entities whose platform
+# stops providing them, they'd otherwise sit forever as "unavailable".
+_LEGACY_ENTITY_KEYS: list[tuple[str, str]] = [
+    *((f"weekday_{day.value}_enabled", "switch") for day in WEEKDAY_ORDER),
+    *((f"weekday_{day.value}_time", "time") for day in WEEKDAY_ORDER),
+    ("onetime_enabled", "switch"),
+    ("onetime_datetime", "datetime"),
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -49,13 +64,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # misses it (e.g. a subentry deleted between unload and this setup).
     hass.data[DOMAIN] = {}
 
+    alarm_store = AlarmSqliteStore(hass)
+    await alarm_store.async_setup()
+
     device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+    await _async_migrate_schedule_to_sqlite_once(
+        hass, alarm_store, entity_registry, set(entry.subentries)
+    )
+
     new_subentry_ids: set[str] = set()
     for subentry_id, subentry in entry.subentries.items():
         if device_registry.async_get_device(identifiers={(DOMAIN, subentry_id)}) is None:
             new_subentry_ids.add(subentry_id)
 
-        coordinator = AlarmClockCoordinator(hass, entry, subentry)
+        coordinator = AlarmClockCoordinator(hass, entry, subentry, alarm_store)
         await coordinator.async_load()
         hass.data[DOMAIN][subentry_id] = coordinator
 
@@ -85,6 +108,59 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     return True
+
+
+async def _async_migrate_schedule_to_sqlite_once(
+    hass: HomeAssistant,
+    alarm_store: AlarmSqliteStore,
+    entity_registry: er.EntityRegistry,
+    subentry_ids: set[str],
+) -> None:
+    """One-time move of each device's weekday/onetime schedule into SQLite.
+
+    Runs at most once ever, tracked via a Store flag (mirrors
+    `_async_migrate_exposure_once` below). Reads the legacy per-device
+    `Store` (still used afterwards for snooze_duration/volume, just no
+    longer for the schedule keys read here) and removes the now-orphaned
+    weekday/switch/time/datetime entities, which HA would otherwise leave
+    behind as permanently "unavailable".
+    """
+    store = Store[dict[str, Any]](hass, STORAGE_VERSION, f"{DOMAIN}_sqlite_migration")
+    if await store.async_load():
+        return
+
+    for subentry_id in subentry_ids:
+        legacy_store = Store[dict[str, Any]](hass, STORAGE_VERSION, f"{DOMAIN}.{subentry_id}")
+        legacy_data = await legacy_store.async_load()
+        if legacy_data:
+            for day_value, day_data in legacy_data.get("weekdays", {}).items():
+                if not day_data.get("enabled"):
+                    continue
+                try:
+                    alarm_time = dt_time.fromisoformat(day_data.get("time", "07:00:00"))
+                except ValueError:
+                    continue
+                await alarm_store.async_insert(
+                    subentry_id, "recurring", alarm_time, weekday=day_value
+                )
+
+            if legacy_data.get("onetime_enabled"):
+                onetime_raw = legacy_data.get("onetime_datetime")
+                onetime_dt = dt_util.parse_datetime(onetime_raw) if onetime_raw else None
+                if onetime_dt is not None:
+                    onetime_dt = dt_util.as_local(onetime_dt)
+                    await alarm_store.async_insert(
+                        subentry_id, "onetime", onetime_dt.time(), date=onetime_dt.date()
+                    )
+
+        for key, entity_domain in _LEGACY_ENTITY_KEYS:
+            entity_id = entity_registry.async_get_entity_id(
+                entity_domain, DOMAIN, f"{subentry_id}_{key}"
+            )
+            if entity_id is not None:
+                entity_registry.async_remove(entity_id)
+
+    await store.async_save({_SCHEDULE_MIGRATION_DONE_KEY: True})
 
 
 def _set_default_exposure(

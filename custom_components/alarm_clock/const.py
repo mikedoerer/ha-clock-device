@@ -7,9 +7,6 @@ DOMAIN = "alarm_clock"
 SUBENTRY_TYPE_ALARM_CLOCK = "alarm_clock"
 
 PLATFORMS = [
-    "switch",
-    "time",
-    "datetime",
     "number",
     "binary_sensor",
     "sensor",
