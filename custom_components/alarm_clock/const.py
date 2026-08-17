@@ -15,7 +15,6 @@ PLATFORMS = [
 
 # Subentry config data keys
 CONF_NAME = "name"
-CONF_INPUT_SATELLITE_ENTITY_ID = "input_satellite_entity_id"
 CONF_SNOOZE_BUTTON_ENTITY_ID = "snooze_button_entity_id"
 # Picked via HA's built-in media selector ("Browse media"); stored as the dict
 # it produces: {"entity_id": ..., "media_content_id": ..., "media_content_type": ...}.

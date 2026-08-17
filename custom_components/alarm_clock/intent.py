@@ -11,13 +11,20 @@ deletion (to disable voice control) are never touched or recreated. If
 anything changed on disk, we ask the conversation component to reload
 without requiring a full Home Assistant restart.
 
+There's no configured "input device" per alarm clock any more - instead, a
+voice command is matched to whichever alarm clock's device sits in the same
+HA area as the satellite that received it (see `_resolve_by_satellite_area`).
+This only fires when exactly one alarm clock shares that area; with zero or
+several matches, resolution falls through to the fallbacks below exactly as
+if the satellite had no area at all.
+
 Snooze/Stop ("schlummern"/"wecker beenden") only make sense while an alarm
 is ringing/snoozed, so their device resolution falls back to "the single
-alarm clock currently ringing/snoozed" when the satellite doesn't resolve
-one. Setting or deleting a schedule (AlarmClockSetRecurring/AlarmClockSetOnetime/
+alarm clock currently ringing/snoozed" when the satellite's area doesn't
+resolve one. Setting or deleting a schedule (AlarmClockSetRecurring/AlarmClockSetOnetime/
 AlarmClockDeleteRecurring/AlarmClockDeleteOnetime) has no such "currently active"
 anchor, so it falls back to "the single configured alarm clock" instead -
-with multiple devices and no satellite match, it asks for clarification
+with multiple devices and no area match, it asks for clarification
 rather than guessing either way.
 
 Any sentence can also name the device explicitly ("... im Bad", "... in the
@@ -36,12 +43,11 @@ from typing import Any
 import yaml
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import intent
+from homeassistant.helpers import device_registry as dr, entity_registry as er, intent
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_INPUT_SATELLITE_ENTITY_ID,
     DOMAIN,
     INTENT_DELETE_ONETIME,
     INTENT_DELETE_RECURRING,
@@ -166,6 +172,47 @@ def _resolve_named_device(intent_obj: intent.Intent) -> AlarmClockCoordinator | 
     return intent_obj.hass.data.get(DOMAIN, {}).get(device_slot["value"])
 
 
+def _entity_area_id(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Effective area of an entity: its own override, else its device's area."""
+    entity_entry = er.async_get(hass).async_get(entity_id)
+    if entity_entry is None:
+        return None
+    if entity_entry.area_id is not None:
+        return entity_entry.area_id
+    if entity_entry.device_id is not None:
+        device = dr.async_get(hass).async_get(entity_entry.device_id)
+        if device is not None:
+            return dr.async_get_effective_area_id(hass, device)
+    return None
+
+
+def _coordinator_area_id(hass: HomeAssistant, coordinator: AlarmClockCoordinator) -> str | None:
+    """Effective area of an alarm clock's own virtual device."""
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, coordinator.subentry_id)})
+    if device is None:
+        return None
+    return dr.async_get_effective_area_id(hass, device)
+
+
+def _resolve_by_satellite_area(
+    intent_obj: intent.Intent, coordinators: list[AlarmClockCoordinator]
+) -> AlarmClockCoordinator | None:
+    """If the requesting satellite's area has exactly one alarm clock, target it.
+
+    Zero matches (satellite has no area, or no alarm clock lives there) or
+    several matches (more than one alarm clock in that area) both return
+    None - callers fall through to their own fallback instead of guessing.
+    """
+    satellite_id = intent_obj.satellite_id
+    if not satellite_id:
+        return None
+    area_id = _entity_area_id(intent_obj.hass, satellite_id)
+    if area_id is None:
+        return None
+    matches = [c for c in coordinators if _coordinator_area_id(intent_obj.hass, c) == area_id]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
     """Pick which alarm clock device a snooze/stop voice command targets."""
     named = _resolve_named_device(intent_obj)
@@ -176,11 +223,9 @@ def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
         intent_obj.hass.data.get(DOMAIN, {}).values()
     )
 
-    satellite_id = intent_obj.satellite_id
-    if satellite_id:
-        for coordinator in coordinators:
-            if coordinator.subentry.data.get(CONF_INPUT_SATELLITE_ENTITY_ID) == satellite_id:
-                return coordinator
+    by_area = _resolve_by_satellite_area(intent_obj, coordinators)
+    if by_area is not None:
+        return by_area
 
     active = [c for c in coordinators if c.state != AlarmState.IDLE]
     if len(active) == 1:
@@ -195,9 +240,9 @@ def _resolve_coordinator_for_schedule(intent_obj: intent.Intent) -> AlarmClockCo
 
     Unlike _resolve_coordinator (snooze/stop), there's no "currently
     ringing" device to fall back on - a schedule can be set at any time. So:
-    match satellite_id first, else fall back to the single configured alarm
-    clock if there's only one, else ask for clarification instead of
-    guessing.
+    match by the satellite's area first, else fall back to the single
+    configured alarm clock if there's only one, else ask for clarification
+    instead of guessing.
     """
     named = _resolve_named_device(intent_obj)
     if named is not None:
@@ -207,11 +252,9 @@ def _resolve_coordinator_for_schedule(intent_obj: intent.Intent) -> AlarmClockCo
         intent_obj.hass.data.get(DOMAIN, {}).values()
     )
 
-    satellite_id = intent_obj.satellite_id
-    if satellite_id:
-        for coordinator in coordinators:
-            if coordinator.subentry.data.get(CONF_INPUT_SATELLITE_ENTITY_ID) == satellite_id:
-                return coordinator
+    by_area = _resolve_by_satellite_area(intent_obj, coordinators)
+    if by_area is not None:
+        return by_area
 
     if len(coordinators) == 1:
         return coordinators[0]
