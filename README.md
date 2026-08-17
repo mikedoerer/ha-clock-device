@@ -1,5 +1,7 @@
 # Alarm Clock
 
+> ⚠️ **Work in progress - not ready for use.** This is a one-person hobby project under active, breaking development (config fields and behavior can change at any time without a migration path). Not recommended for installation yet; watch the repo or check back later.
+
 HACS integration for Home Assistant: virtual, voice-controlled alarm clocks.
 
 After installation, set up the integration once under *Settings → Devices & services → Add integration → Alarm Clock*. Then add as many **virtual alarm clock devices** as you like from the integration's page ("+ Add device"). Each device is a complete, independent alarm clock with:
