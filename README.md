@@ -8,7 +8,7 @@ After installation, set up the integration once under *Settings → Devices & se
 
 - recurring alarms - any number per weekday, each added or removed independently by voice or service call (e.g. two different times on the same day both ring)
 - one-time alarms - any number, each its own date + time, independent of the recurring alarms
-- configurable input device (Assist satellite, e.g. HA Voice PE)
+- no input device to configure - a satellite in the same HA area as the alarm clock's device automatically controls it (see Phase 7)
 - output device + alarm sound in **one** step via "browse media" (the device you pick the sound on doubles as the output device - no separate device selection) plus separately adjustable volume
 - optional light (any `light` entity) with configured color/brightness while ringing - always turns off when stopped (no state restore)
 - snooze via voice, button entity, or a hardware button (e.g. Voice PE) - any press on a configured button snoozes, no automation needed (see Phase 6)
@@ -28,6 +28,8 @@ After installation, set up the integration once under *Settings → Devices & se
 
 **Phase 6** ✅ Snooze button is now a config field on the alarm clock itself (*Wecker bearbeiten* → "Snooze button (event entity)") instead of requiring a separate automation - pick any `event` entity (e.g. a Voice PE's button) and **any** event it reports snoozes, no automation, no picking specific press types.
 
+**Phase 7** ✅ Dropped the "input device (Assist satellite)" config field entirely. A voice command is now matched by *area*: if the requesting satellite's HA area holds exactly one alarm clock's device, that's the target - no per-device satellite link to maintain, and it keeps working if you swap satellites or add a second one to the same room's area. Assign the alarm clock's device and the satellite's device to the same area (*Settings → Areas*) to use this; zero or several alarm clocks in that area falls through to the existing fallbacks unchanged (see [Voice control](#voice-control)).
+
 ## Voice control
 
 The following sentences work out of the box (German and English, see [`custom_components/alarm_clock/sentences/`](custom_components/alarm_clock/sentences/)):
@@ -44,7 +46,7 @@ The full current schedule for a device - every recurring and one-time alarm, arm
 
 The integration copies these sentences into `config/custom_sentences/<language>/alarm_clock.yaml` on every setup (HA only loads sentence files from that directory - a custom integration can't ship them so they're picked up automatically), but only ever overwrites a file whose content still matches exactly what it last wrote there itself. Your own edits, or deleting the file (to disable voice control), are therefore preserved permanently - even across integration updates - while genuine changes to the bundled sentences still land, as long as the file hasn't been touched since the last install.
 
-Which device responds is determined by the voice command's `satellite_id`: first, it looks for an alarm clock whose configured input device (Assist satellite) is exactly the one that received the command. For snooze/stop, it otherwise falls back to the single alarm clock currently ringing/snoozed; for the weekday/one-time/delete commands there's no "currently ringing" anchor, so it falls back to the single configured alarm clock instead. If it's still ambiguous in either case, or there's no matching alarm clock, a spoken error message is given instead of a guess.
+Which device responds is determined by the voice command's `satellite_id`: first, it looks for the single alarm clock whose device shares an HA area with the satellite that received the command (see [Phase 7](#status) - assign both to the same area under *Settings → Areas* to use this). For snooze/stop, it otherwise falls back to the single alarm clock currently ringing/snoozed; for the weekday/one-time/delete commands there's no "currently ringing" anchor, so it falls back to the single configured alarm clock instead. If it's still ambiguous in either case, or there's no matching alarm clock, a spoken error message is given instead of a guess.
 
 ## Installation
 
@@ -54,7 +56,7 @@ Not yet listed in the official HACS store - add it as a HACS "custom repository"
 2. Install "Alarm Clock" via HACS.
 3. Restart Home Assistant.
 4. *Settings → Devices & services → Add integration → "Alarm Clock"* - sets up the integration once (no configuration dialog).
-5. On the new integration page, use "+ Add device" to create and configure a virtual alarm clock device as a subentry (name, output device + sound, optionally light, input device, and a snooze button, snooze duration, volume). Repeat as often as you like for more alarm clocks.
+5. On the new integration page, use "+ Add device" to create and configure a virtual alarm clock device as a subentry (name, output device + sound, optionally light, and a snooze button, snooze duration, volume). Repeat as often as you like for more alarm clocks. To let a satellite in the same room control it by voice without naming it, assign the new device to that room's area (*Settings → Areas*, or the device page's area picker) - see [Phase 7](#status).
 6. Arm the actual schedule (which weekday(s), which time(s), which one-time date(s)) via voice or the `alarm_clock.set_recurring`/`set_onetime` services - see [Voice control](#voice-control). There's no schedule field in the device form itself.
 
 On first start, the integration also automatically copies the voice commands to `config/custom_sentences/` (see [Voice control](#voice-control)) - no further step needed. Snooze via a hardware button (e.g. Home Assistant Voice PE) just needs its `event` entity picked in the device form's "Snooze button" field - see [Phase 6](#status).
@@ -120,3 +122,11 @@ The integration serves the file itself (at `/alarm_clock_static/alarm-clock-card
 - Let it ring again, press it twice in a row right away → snoozes both times (no "getting stuck" like a naive `state` trigger with an attribute filter would).
 - Leave the field empty (or clear it via reconfigure) → pressing the button does nothing, same as before Phase 6.
 - Restart HA → the configured button still snoozes afterward (reloaded from the subentry's stored config, same as every other field).
+
+## Manual verification (Phase 7)
+
+- Assign an alarm clock's device and a satellite's device to the same area, trigger test ring, then say "schlummern" on that satellite (without naming the device) → the matching alarm clock snoozes.
+- Same setup, satellite in a *different* area than any alarm clock → falls back to the single ringing/configured alarm clock (or a spoken ambiguity/no-match error with several), exactly as with no area assigned at all.
+- Two alarm clocks assigned to the same area, say "schlummern" on a satellite in that area → area match is ambiguous (more than one), falls through to the ringing-alarm fallback instead of guessing.
+- Re-assign an alarm clock's device to a different area (or the satellite to a different room) → voice control follows the new area immediately, no reconfiguration of the alarm clock device itself needed.
+- The device form (add/edit) no longer shows an "input device" field, and existing devices upgraded from before Phase 7 keep working via the fallbacks (ringing/single-device) until an area is assigned.

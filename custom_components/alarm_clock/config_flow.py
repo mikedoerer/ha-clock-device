@@ -35,7 +35,6 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_DEFAULT_VOLUME,
-    CONF_INPUT_SATELLITE_ENTITY_ID,
     CONF_LIGHT_BRIGHTNESS_PCT,
     CONF_LIGHT_ENTITY_IDS,
     CONF_LIGHT_RGB_COLOR,
@@ -61,10 +60,6 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME)): TextSelector(),
-            vol.Required(
-                CONF_INPUT_SATELLITE_ENTITY_ID,
-                default=defaults.get(CONF_INPUT_SATELLITE_ENTITY_ID),
-            ): EntitySelector(EntitySelectorConfig(domain="assist_satellite")),
             vol.Optional(
                 CONF_SNOOZE_BUTTON_ENTITY_ID,
                 default=defaults.get(CONF_SNOOZE_BUTTON_ENTITY_ID),
