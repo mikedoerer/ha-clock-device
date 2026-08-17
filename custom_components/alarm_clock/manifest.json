@@ -3,6 +3,7 @@
   "name": "Alarm Clock",
   "codeowners": ["@mikedoerer"],
   "config_flow": true,
+  "dependencies": ["http"],
   "documentation": "https://github.com/mikedoerer/ha-clock-device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/mikedoerer/ha-clock-device/issues",
