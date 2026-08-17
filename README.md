@@ -18,13 +18,13 @@ After installation, set up the integration once under *Settings → Devices & se
 
 **Phase 2** ✅ Voice control: snooze/stop, plus setting weekday and one-time alarms by voice (see below).
 
-**Phase 3** ✅ Blueprint for button snooze (see below) - e.g. for the center button of a Home Assistant Voice PE.
+**Phase 3** ✅ Blueprint for button snooze - e.g. for the center button of a Home Assistant Voice PE. Superseded by Phase 6's config field and removed from the repo (no other users to keep it around for).
 
 **Phase 4** ✅ HACS polish (this installation guide) and CI ([`validate.yml`](.github/workflows/validate.yml) checks `hassfest` + HACS requirements on every push/PR).
 
 **Phase 5** ✅ Schedule moved to a SQLite-backed store (`custom_components/alarm_clock/store.py`) instead of one entity per weekday/one-time slot. This removed the old "one alarm per weekday, one pending one-time alarm" limit - setting a schedule now *adds* an alarm rather than overwriting a fixed slot - and cut each device down to **8 entities** (`Ringing`, `Snoozed`, `Next alarm`, the `Snooze`/`Stop`/`Test ring` buttons, `Snooze duration`, `Volume`). There's no per-alarm entity any more; the full schedule is only ever set via voice/services and is visible as the `alarms` attribute of `sensor.<device>_next_trigger`. Upgrading from an older version migrates each device's existing schedule into SQLite automatically on first start and removes the now-unused weekday/switch/time/datetime entities. Naming a date now disambiguates deleting a one-time alarm when several are set ("wecker am 20. august löschen"); naming a specific *time* to delete on a weekday that has more than one alarm isn't supported by voice yet - `delete_recurring` still removes every alarm on that weekday at once. A bundled dashboard card (`custom_components/alarm_clock/www/alarm-clock-card.js`) also shipped in this phase - see [Dashboard card](#dashboard-card).
 
-**Phase 6** ✅ Snooze button is now a config field on the alarm clock itself (*Wecker bearbeiten* → "Snooze button (event entity)") instead of requiring the separate blueprint below - pick any `event` entity (e.g. a Voice PE's button) and **any** event it reports snoozes, no automation, no picking specific press types. The [button snooze blueprint](#button-snooze-blueprint-legacy) still works if you already have it set up, but don't run both for the same button at once (see that section).
+**Phase 6** ✅ Snooze button is now a config field on the alarm clock itself (*Wecker bearbeiten* → "Snooze button (event entity)") instead of requiring a separate automation - pick any `event` entity (e.g. a Voice PE's button) and **any** event it reports snoozes, no automation, no picking specific press types.
 
 ## Voice control
 
@@ -118,22 +118,3 @@ The integration serves the file itself (at `/alarm_clock_static/alarm-clock-card
 - Let it ring again, press it twice in a row right away → snoozes both times (no "getting stuck" like a naive `state` trigger with an attribute filter would).
 - Leave the field empty (or clear it via reconfigure) → pressing the button does nothing, same as before Phase 6.
 - Restart HA → the configured button still snoozes afterward (reloaded from the subentry's stored config, same as every other field).
-
-## Button snooze blueprint (legacy)
-
-Superseded by the [Phase 6](#status) config field above, which needs no separate automation - kept here for anyone who already has it set up. **Don't configure both the blueprint and the Phase 6 field for the same button entity on the same device** - every press would call `alarm_clock.snooze` twice in a row (harmless, just redundant: it re-arms the same snooze timer twice). If you're migrating, delete the blueprint-based automation once the device's "Snooze button" field is set.
-
-Triggers `alarm_clock.snooze` on the selected alarm clock device whenever a button `event` entity (e.g. `event.<device>_button_press` of a Home Assistant Voice PE) reports one of the configured event types.
-
-Requires **Home Assistant 2026.1 or newer** (introduced the `event.received` trigger this uses).
-
-1. *Settings → Automations & scenes → Blueprints → Import blueprint* and provide the raw file URL of [`blueprints/automation/alarm_clock/voice_pe_snooze_button.yaml`](blueprints/automation/alarm_clock/voice_pe_snooze_button.yaml) (or copy the file manually to `config/blueprints/automation/alarm_clock/`). Note: when importing by URL, Home Assistant names the local folder after the GitHub username (`mikedoerer`), not after the repository or integration - that's how HA's blueprint importer always works and isn't something this repo's layout can influence; rename the local folder afterward if you'd rather it read differently.
-2. Create an automation from the blueprint, select the button event entity and alarm clock device. The preset event types (`double_press`, `triple_press`, `long_press`, `easter_egg_press`) match the Voice PE - adjust as needed for other buttons.
-
-Deliberately snooze-only, no stop blueprint - use voice control or the `Stop` button entity to stop.
-
-### Manual verification (Phase 3, legacy blueprint)
-
-- Trigger test ring, then e.g. double-press the Voice PE button (`double_press`) → playback stops, `binary_sensor.<device>_snoozed` = on.
-- Let it ring again, trigger the same press type twice in a row right away (e.g. two `long_press` in a row) → the automation fires both times (no "getting stuck" like with a naive `state` trigger with an attribute filter).
-- Trigger a press type that's not among the configured event types → no reaction.
