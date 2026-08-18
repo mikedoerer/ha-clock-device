@@ -1,8 +1,8 @@
 """Custom services for the Alarm Clock integration.
 
-None of these actions map onto any single entity's native service, so
-they're registered as domain-level, device-targeted services instead of
-entities (see the Phase 1 plan's Bucket A/B split). set_onetime/set_recurring
+None of these actions map onto any single entity's native service (there's
+no per-alarm entity since Phase 5 - see store.py), so they're registered as
+domain-level, device-targeted services instead. set_onetime/set_recurring
 exist mainly as a stable, self-documenting target for the LLM conversation
 fallback (see intent.py's module docstring) - setting a schedule via voice
 already goes through the AlarmClockSetOnetime/SetRecurring sentence intents
@@ -48,7 +48,7 @@ from .const import (
     SERVICE_STOP,
 )
 from .coordinator import AlarmClockCoordinator
-from .models import WEEKDAY_ORDER, Weekday
+from .models import WEEKDAY_ORDER, Weekday, next_onetime_occurrence
 
 _TARGET_FIELDS = {
     vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
@@ -125,22 +125,35 @@ def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list[Alarm
 
     device_registry = dr.async_get(hass)
     coordinators: list[AlarmClockCoordinator] = []
+    unresolved: list[str] = []
     for device_id in device_ids:
         device = device_registry.async_get(device_id)
-        if device is None:
-            continue
-        subentry_id = next(
-            (identifier[1] for identifier in device.identifiers if identifier[0] == DOMAIN),
-            None,
+        subentry_id = (
+            next(
+                (identifier[1] for identifier in device.identifiers if identifier[0] == DOMAIN),
+                None,
+            )
+            if device is not None
+            else None
         )
-        if subentry_id is None:
-            continue
-        coordinator = hass.data.get(DOMAIN, {}).get(subentry_id)
+        coordinator = (
+            hass.data.get(DOMAIN, {}).get(subentry_id) if subentry_id is not None else None
+        )
         if coordinator is not None:
             coordinators.append(coordinator)
+        else:
+            unresolved.append(device_id)
 
     if not coordinators:
         raise ServiceValidationError("No alarm clock device found for this target.")
+    if unresolved:
+        # Never let a partial resolution look like full success to the
+        # caller (LLM fallback / dashboard card) - a target that silently
+        # dropped out is indistinguishable from one that worked otherwise.
+        raise ServiceValidationError(
+            f"{len(unresolved)} target device(s) are not alarm clocks or no longer exist: "
+            f"{', '.join(unresolved)}."
+        )
     return coordinators
 
 
@@ -173,7 +186,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                     minute=alarm_time.minute,
                 )
             else:
-                target = AlarmClockCoordinator._next_onetime_occurrence(now, alarm_time)
+                target = next_onetime_occurrence(now, alarm_time)
             await coordinator.async_add_onetime(target)
 
     async def _async_handle_set_recurring(call: ServiceCall) -> None:
@@ -191,7 +204,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                     alarm for alarm in onetime_alarms if alarm.alarm_date == target_date
                 ]
             if not onetime_alarms:
-                continue
+                raise ServiceValidationError(
+                    f"{coordinator.name} has no one-time alarm set"
+                    + (f" on {target_date}" if target_date else "")
+                    + "."
+                )
             if len(onetime_alarms) > 1:
                 raise ServiceValidationError(
                     f"{coordinator.name} has {len(onetime_alarms)} one-time alarms set"

@@ -10,6 +10,7 @@ from homeassistant.components.media_player import MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -34,7 +35,7 @@ from .const import (
     STORAGE_VERSION,
     signal_update,
 )
-from .models import WEEKDAY_ORDER, AlarmState, Weekday
+from .models import AlarmState, Weekday, next_occurrence_for_weekday
 from .store import Alarm, AlarmSqliteStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class AlarmClockCoordinator:
         self.name: str = subentry.data.get("name", subentry.title)
         self._alarm_store = alarm_store
 
-        self.alarms: list[Alarm] = []
+        self._alarms: list[Alarm] = []
         self.snooze_duration = timedelta(
             minutes=subentry.data.get(CONF_SNOOZE_DURATION_MINUTES, DEFAULT_SNOOZE_DURATION_MINUTES)
         )
@@ -92,8 +93,18 @@ class AlarmClockCoordinator:
             volume = data.get("volume")
             if volume is not None:
                 self.volume = volume
-        self.alarms = await self._alarm_store.async_load_for_device(self.subentry_id)
+        self._alarms = await self._alarm_store.async_load_for_device(self.subentry_id)
         self._setup_snooze_button_listener()
+
+    @property
+    def alarms(self) -> list[Alarm]:
+        """Read-only view of the full schedule - mutate via the async_* methods only.
+
+        Returns a copy so external code (sensor.py's `alarms` attribute,
+        services.py) can't accidentally desync in-memory state from SQLite
+        by mutating the list directly.
+        """
+        return list(self._alarms)
 
     def _setup_snooze_button_listener(self) -> None:
         """Any event on the configured button entity snoozes - press type doesn't matter.
@@ -148,7 +159,7 @@ class AlarmClockCoordinator:
             existing = next(
                 (
                     alarm
-                    for alarm in self.alarms
+                    for alarm in self._alarms
                     if alarm.kind == "recurring"
                     and alarm.weekday == day.value
                     and alarm.alarm_time == alarm_time
@@ -163,7 +174,7 @@ class AlarmClockCoordinator:
             new_alarm = await self._alarm_store.async_insert(
                 self.subentry_id, "recurring", alarm_time, weekday=day.value
             )
-            self.alarms.append(new_alarm)
+            self._alarms.append(new_alarm)
         self.async_recompute_next_trigger()
 
     async def async_delete_recurring(self, days: list[Weekday]) -> list[Alarm]:
@@ -173,10 +184,10 @@ class AlarmClockCoordinator:
             deleted_ids = await self._alarm_store.async_delete_where(
                 self.subentry_id, "recurring", weekday=day.value
             )
-            deleted.extend(alarm for alarm in self.alarms if alarm.id in deleted_ids)
-            self.alarms = [
+            deleted.extend(alarm for alarm in self._alarms if alarm.id in deleted_ids)
+            self._alarms = [
                 alarm
-                for alarm in self.alarms
+                for alarm in self._alarms
                 if not (alarm.kind == "recurring" and alarm.weekday == day.value)
             ]
         self.async_recompute_next_trigger()
@@ -188,7 +199,7 @@ class AlarmClockCoordinator:
         existing = next(
             (
                 alarm
-                for alarm in self.alarms
+                for alarm in self._alarms
                 if alarm.kind == "onetime"
                 and alarm.alarm_date == target.date()
                 and alarm.alarm_time == target.time().replace(second=0, microsecond=0)
@@ -203,17 +214,19 @@ class AlarmClockCoordinator:
             new_alarm = await self._alarm_store.async_insert(
                 self.subentry_id, "onetime", target.time(), date=target.date()
             )
-            self.alarms.append(new_alarm)
+            self._alarms.append(new_alarm)
         self.async_recompute_next_trigger()
 
     async def async_delete_alarm(self, alarm_id: int) -> None:
-        """Remove a single alarm row by id (used to resolve one-time-alarm ambiguity)."""
+        """Remove a single alarm row by id - the shared primitive behind the dashboard
+        card's per-row delete (services.py) and behind delete_onetime/DeleteOnetime
+        once they've narrowed down to exactly one alarm."""
         await self._alarm_store.async_delete(alarm_id)
-        self.alarms = [alarm for alarm in self.alarms if alarm.id != alarm_id]
+        self._alarms = [alarm for alarm in self._alarms if alarm.id != alarm_id]
         self.async_recompute_next_trigger()
 
     def _replace_alarm(self, updated: Alarm) -> None:
-        self.alarms = [updated if alarm.id == updated.id else alarm for alarm in self.alarms]
+        self._alarms = [updated if alarm.id == updated.id else alarm for alarm in self._alarms]
 
     @property
     def onetime_alarms(self) -> list[Alarm]:
@@ -224,7 +237,7 @@ class AlarmClockCoordinator:
         already does elsewhere in this integration.
         """
         return sorted(
-            (alarm for alarm in self.alarms if alarm.kind == "onetime" and alarm.enabled),
+            (alarm for alarm in self._alarms if alarm.kind == "onetime" and alarm.enabled),
             key=lambda alarm: (alarm.date, alarm.time),
         )
 
@@ -251,16 +264,16 @@ class AlarmClockCoordinator:
     def async_recompute_next_trigger(self) -> None:
         """Recompute the soonest future trigger across every enabled alarm row.
 
-        Reads only the in-memory `self.alarms` list (never touches SQLite) -
+        Reads only the in-memory `self._alarms` list (never touches SQLite) -
         this stays a `@callback` so it can run straight off any mutator.
         """
         now = dt_util.now()
         candidates: list[tuple[datetime, Alarm]] = []
-        for alarm in self.alarms:
+        for alarm in self._alarms:
             if not alarm.enabled:
                 continue
             if alarm.kind == "recurring":
-                occurrence = self._next_occurrence_for_weekday(
+                occurrence = next_occurrence_for_weekday(
                     now, Weekday(alarm.weekday), alarm.alarm_time
                 )
                 candidates.append((occurrence, alarm))
@@ -288,40 +301,21 @@ class AlarmClockCoordinator:
             )
         self._push_update()
 
-    @staticmethod
-    def _next_onetime_occurrence(
-        now: datetime, alarm_time: dt_time, *, tomorrow: bool = False
-    ) -> datetime:
-        """Next local datetime for `alarm_time` - today unless already passed or `tomorrow` is forced."""
-        candidate = dt_util.start_of_local_day(now) + timedelta(days=1 if tomorrow else 0)
-        candidate = candidate.replace(
-            hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
-        )
-        if candidate <= now:
-            candidate += timedelta(days=1)
-        return candidate
-
-    @staticmethod
-    def _next_occurrence_for_weekday(now: datetime, day: Weekday, alarm_time: dt_time) -> datetime:
-        target_index = WEEKDAY_ORDER.index(day)
-        days_ahead = (target_index - now.weekday()) % 7
-        candidate = dt_util.start_of_local_day(now) + timedelta(days=days_ahead)
-        candidate = candidate.replace(
-            hour=alarm_time.hour, minute=alarm_time.minute, second=0, microsecond=0
-        )
-        if candidate <= now:
-            candidate += timedelta(days=7)
-        return candidate
-
     async def _async_handle_trigger(self, now: datetime) -> None:
         fired_alarm = self._next_trigger_alarm
         self.state = AlarmState.RINGING
-        await self.async_start_ringing()
-        if fired_alarm is not None and fired_alarm.kind == "onetime":
-            # one-time alarms are removed once they fire; recurring alarms repeat.
-            await self._alarm_store.async_delete(fired_alarm.id)
-            self.alarms = [alarm for alarm in self.alarms if alarm.id != fired_alarm.id]
-        self.async_recompute_next_trigger()
+        try:
+            await self.async_start_ringing()
+        finally:
+            # Rescheduling must happen even if the ringing call itself blew up
+            # partway through (e.g. an unresponsive media_player/light) -
+            # otherwise a hardware hiccup permanently disables a recurring
+            # alarm's next occurrence with no error visible anywhere.
+            if fired_alarm is not None and fired_alarm.kind == "onetime":
+                # one-time alarms are removed once they fire; recurring alarms repeat.
+                await self._alarm_store.async_delete(fired_alarm.id)
+                self._alarms = [alarm for alarm in self._alarms if alarm.id != fired_alarm.id]
+            self.async_recompute_next_trigger()
 
     # ------------------------------------------------------------------
     # ringing / snooze / stop
@@ -337,20 +331,20 @@ class AlarmClockCoordinator:
         media_player = self._media_player_entity_id()
 
         if media_player:
-            await self.hass.services.async_call(
+            volume_ok = await self._async_call_hardware(
                 "media_player",
                 "volume_set",
                 {"entity_id": media_player, "volume_level": self.volume},
-                blocking=True,
             )
-            await self._async_play_media(media_player)
-            self._unsub_media_watch = async_track_state_change_event(
-                self.hass, [media_player], self._async_handle_media_state
-            )
+            if volume_ok:
+                await self._async_play_media(media_player)
+                self._unsub_media_watch = async_track_state_change_event(
+                    self.hass, [media_player], self._async_handle_media_state
+                )
 
         light_ids: list[str] = data.get(CONF_LIGHT_ENTITY_IDS) or []
         if light_ids:
-            await self.hass.services.async_call(
+            await self._async_call_hardware(
                 "light",
                 "turn_on",
                 {
@@ -358,10 +352,33 @@ class AlarmClockCoordinator:
                     "rgb_color": data.get(CONF_LIGHT_RGB_COLOR),
                     "brightness_pct": data.get(CONF_LIGHT_BRIGHTNESS_PCT),
                 },
-                blocking=True,
             )
 
         self._push_update()
+
+    async def _async_call_hardware(self, domain: str, service: str, service_data: dict) -> bool:
+        """Call a media_player/light service, logging (not raising) on failure.
+
+        Real hardware (flaky ESPHome devices, unresponsive media players) can
+        fail this call. Letting the exception propagate would abort whatever
+        caller is mid-sequence - e.g. `_async_handle_trigger` never reaching
+        `async_recompute_next_trigger()`, which would silently and permanently
+        stop a recurring alarm from rescheduling. Best-effort + logged is
+        safer here than loud-but-fatal.
+        """
+        try:
+            await self.hass.services.async_call(domain, service, service_data, blocking=True)
+        except HomeAssistantError as err:
+            _LOGGER.error(
+                "Alarm Clock '%s': %s.%s failed for %s: %s",
+                self.name,
+                domain,
+                service,
+                service_data.get("entity_id"),
+                err,
+            )
+            return False
+        return True
 
     async def _async_play_media(self, media_player: str) -> None:
         media = self.subentry.data.get(CONF_MEDIA) or {}
@@ -371,7 +388,7 @@ class AlarmClockCoordinator:
                 "Alarm Clock '%s': no alarm sound configured, playing nothing", self.name
             )
             return
-        await self.hass.services.async_call(
+        await self._async_call_hardware(
             "media_player",
             "play_media",
             {
@@ -379,7 +396,6 @@ class AlarmClockCoordinator:
                 "media_content_id": media_content_id,
                 "media_content_type": media.get(CONF_MEDIA_CONTENT_TYPE, "music"),
             },
-            blocking=True,
         )
 
     async def _async_handle_media_state(self, event) -> None:
@@ -437,17 +453,15 @@ class AlarmClockCoordinator:
         """Stop sound and light - the slow, blocking-on-real-hardware part of silencing."""
         media_player = self._media_player_entity_id()
         if media_player:
-            await self.hass.services.async_call(
-                "media_player", "media_stop", {"entity_id": media_player}, blocking=True
+            await self._async_call_hardware(
+                "media_player", "media_stop", {"entity_id": media_player}
             )
         await self._async_lights_off()
 
     async def _async_lights_off(self) -> None:
         light_ids: list[str] = self.subentry.data.get(CONF_LIGHT_ENTITY_IDS) or []
         if light_ids:
-            await self.hass.services.async_call(
-                "light", "turn_off", {"entity_id": light_ids}, blocking=True
-            )
+            await self._async_call_hardware("light", "turn_off", {"entity_id": light_ids})
 
     # ------------------------------------------------------------------
     # lifecycle

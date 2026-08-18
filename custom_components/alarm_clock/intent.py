@@ -58,7 +58,13 @@ from .const import (
     STORAGE_VERSION,
 )
 from .coordinator import AlarmClockCoordinator
-from .models import WEEKDAY_ORDER, AlarmState, Weekday
+from .models import (
+    WEEKDAY_ORDER,
+    AlarmState,
+    Weekday,
+    next_occurrence_for_weekday,
+    next_onetime_occurrence,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -158,6 +164,10 @@ _TEXT_NO_ONETIME_ALARM_ON_DATE = {
     "de": "Es ist kein einmaliger Wecker an diesem Datum gestellt.",
     "en": "No one-time alarm is set for that date.",
 }
+_TEXT_AMBIGUOUS_AREA = {
+    "de": "In diesem Gebiet gibt es mehrere Wecker - das kann ich per Sprache nicht eindeutig zuordnen.",
+    "en": "There are multiple alarm clocks in this area - I can't tell which one you mean.",
+}
 
 
 def _localized(texts: dict[str, str], language: str | None) -> str:
@@ -174,21 +184,17 @@ def _resolve_named_device(intent_obj: intent.Intent) -> AlarmClockCoordinator | 
 
 def _entity_area_id(hass: HomeAssistant, entity_id: str) -> str | None:
     """Effective area of an entity: its own override, else its device's area."""
-    entity_entry = er.async_get(hass).async_get(entity_id)
-    if entity_entry is None:
+    entry = er.async_get(hass).async_get(entity_id)
+    if entry is None:
         return None
-    if entity_entry.area_id is not None:
-        return entity_entry.area_id
-    if entity_entry.device_id is not None:
-        device = dr.async_get(hass).async_get(entity_entry.device_id)
-        if device is not None:
-            return dr.async_get_effective_area_id(hass, device)
-    return None
+    return er.async_get_effective_area_id(hass, entry)
 
 
-def _coordinator_area_id(hass: HomeAssistant, coordinator: AlarmClockCoordinator) -> str | None:
+def _coordinator_area_id(
+    hass: HomeAssistant, device_registry: dr.DeviceRegistry, coordinator: AlarmClockCoordinator
+) -> str | None:
     """Effective area of an alarm clock's own virtual device."""
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, coordinator.subentry_id)})
+    device = device_registry.async_get_device(identifiers={(DOMAIN, coordinator.subentry_id)})
     if device is None:
         return None
     return dr.async_get_effective_area_id(hass, device)
@@ -199,9 +205,12 @@ def _resolve_by_satellite_area(
 ) -> AlarmClockCoordinator | None:
     """If the requesting satellite's area has exactly one alarm clock, target it.
 
-    Zero matches (satellite has no area, or no alarm clock lives there) or
-    several matches (more than one alarm clock in that area) both return
-    None - callers fall through to their own fallback instead of guessing.
+    No area assigned, or zero alarm clocks in that area, returns None -
+    callers fall through to their own fallback. Two or more alarm clocks
+    sharing that area raises a distinct spoken error instead of falling
+    through silently the same way as "no area at all" - that's a real area
+    misconfiguration (e.g. two devices' areas both set to "Bedroom"), not
+    the same situation as nobody having configured an area yet.
     """
     satellite_id = intent_obj.satellite_id
     if not satellite_id:
@@ -209,23 +218,43 @@ def _resolve_by_satellite_area(
     area_id = _entity_area_id(intent_obj.hass, satellite_id)
     if area_id is None:
         return None
-    matches = [c for c in coordinators if _coordinator_area_id(intent_obj.hass, c) == area_id]
-    return matches[0] if len(matches) == 1 else None
+    device_registry = dr.async_get(intent_obj.hass)
+    matches = [
+        c
+        for c in coordinators
+        if _coordinator_area_id(intent_obj.hass, device_registry, c) == area_id
+    ]
+    if len(matches) > 1:
+        raise intent.IntentHandleError(_localized(_TEXT_AMBIGUOUS_AREA, intent_obj.language))
+    return matches[0] if matches else None
 
 
-def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
-    """Pick which alarm clock device a snooze/stop voice command targets."""
+def _resolve_named_or_area(
+    intent_obj: intent.Intent,
+) -> tuple[AlarmClockCoordinator | None, list[AlarmClockCoordinator]]:
+    """Shared first two resolution steps (named device, then satellite area) for both
+    _resolve_coordinator and _resolve_coordinator_for_schedule.
+
+    Returns the resolved coordinator if either step matched, plus the full
+    coordinator list so the caller can still apply its own fallback/ambiguity
+    handling when neither step did.
+    """
     named = _resolve_named_device(intent_obj)
     if named is not None:
-        return named
+        return named, []
 
     coordinators: list[AlarmClockCoordinator] = list(
         intent_obj.hass.data.get(DOMAIN, {}).values()
     )
-
     by_area = _resolve_by_satellite_area(intent_obj, coordinators)
-    if by_area is not None:
-        return by_area
+    return by_area, coordinators
+
+
+def _resolve_coordinator(intent_obj: intent.Intent) -> AlarmClockCoordinator:
+    """Pick which alarm clock device a snooze/stop voice command targets."""
+    resolved, coordinators = _resolve_named_or_area(intent_obj)
+    if resolved is not None:
+        return resolved
 
     active = [c for c in coordinators if c.state != AlarmState.IDLE]
     if len(active) == 1:
@@ -244,17 +273,9 @@ def _resolve_coordinator_for_schedule(intent_obj: intent.Intent) -> AlarmClockCo
     configured alarm clock if there's only one, else ask for clarification
     instead of guessing.
     """
-    named = _resolve_named_device(intent_obj)
-    if named is not None:
-        return named
-
-    coordinators: list[AlarmClockCoordinator] = list(
-        intent_obj.hass.data.get(DOMAIN, {}).values()
-    )
-
-    by_area = _resolve_by_satellite_area(intent_obj, coordinators)
-    if by_area is not None:
-        return by_area
+    resolved, coordinators = _resolve_named_or_area(intent_obj)
+    if resolved is not None:
+        return resolved
 
     if len(coordinators) == 1:
         return coordinators[0]
@@ -474,9 +495,10 @@ class AlarmClockSetRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
 class AlarmClockDeleteRecurringIntentHandler(_AlarmClockScheduleIntentHandler):
     """Handles AlarmClockDeleteRecurring ("wecker montag löschen" / "delete the alarm for monday").
 
-    Disarms the targeted weekday(s) without touching their configured time -
-    re-enabling later (via switch or a new AlarmClockSetRecurring command) keeps
-    the old time.
+    Permanently removes the targeted weekday(s)' alarm row(s), including
+    their time - this is a hard delete (async_delete_recurring), not a
+    disable. Re-arming a weekday requires a fresh AlarmClockSetRecurring
+    command with a time; there's no way to recover the old time afterward.
     """
 
     intent_type = INTENT_DELETE_RECURRING
@@ -524,7 +546,7 @@ class AlarmClockSetOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
 
         if weekday_slot:
             day = Weekday(weekday_slot["value"])
-            target = AlarmClockCoordinator._next_occurrence_for_weekday(now, day, alarm_time)
+            target = next_occurrence_for_weekday(now, day, alarm_time)
             day_word = _WEEKDAY_NAMES[lang][day]
         elif day_slot:
             month = int(_slot_value(intent_obj, "alarm_month"))
@@ -539,7 +561,7 @@ class AlarmClockSetOnetimeIntentHandler(_AlarmClockScheduleIntentHandler):
             # Either "heute"/"morgen" or no date slot at all (bare time) -
             # both roll forward by one day if the resulting time has passed.
             tomorrow = bool(relative_slot and relative_slot["value"] == "tomorrow")
-            target = AlarmClockCoordinator._next_onetime_occurrence(now, alarm_time, tomorrow=tomorrow)
+            target = next_onetime_occurrence(now, alarm_time, tomorrow=tomorrow)
             if target.date() == now.date():
                 day_word = "heute" if lang == "de" else "today"
             else:
@@ -604,4 +626,15 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
         intent.async_register(hass, AlarmClockDeleteOnetimeIntentHandler())
         hass.data[_DATA_INTENTS_REGISTERED] = True
 
-    await _async_install_default_sentences(hass)
+    try:
+        await _async_install_default_sentences(hass)
+    except OSError as err:
+        # A filesystem problem writing custom_sentences/ (permissions, disk
+        # full, read-only mount) is a voice-control-only failure - it must
+        # not take the whole integration down with it (entities/schedule/
+        # services all work independently of sentence files).
+        _LOGGER.error(
+            "Alarm Clock: could not install voice-command sentences, voice control "
+            "may not work until this is fixed: %s",
+            err,
+        )

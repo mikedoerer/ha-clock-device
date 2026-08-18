@@ -10,6 +10,7 @@ for how rarely this integration's schedule actually changes.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -18,6 +19,8 @@ from datetime import date as dt_date, time as dt_time
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
+
+_LOGGER = logging.getLogger(__name__)
 
 _DB_FILENAME = "alarm_clock_alarms.db"
 
@@ -52,6 +55,25 @@ class Alarm:
     label: str | None
     created_at: str
     updated_at: str
+
+    def __post_init__(self) -> None:
+        # `kind` is a discriminated union in practice (recurring<->weekday,
+        # onetime<->date) but stored as a plain string for SQLite - this is
+        # the only place that relationship is actually checked, so a
+        # malformed row (bad legacy migration, manual DB edit) fails loudly
+        # here instead of silently corrupting next-trigger computation later.
+        if self.kind == "recurring" and (self.weekday is None or self.date is not None):
+            raise ValueError(
+                f"Alarm {self.id}: kind='recurring' requires weekday set and date unset "
+                f"(got weekday={self.weekday!r}, date={self.date!r})"
+            )
+        if self.kind == "onetime" and (self.date is None or self.weekday is not None):
+            raise ValueError(
+                f"Alarm {self.id}: kind='onetime' requires date set and weekday unset "
+                f"(got weekday={self.weekday!r}, date={self.date!r})"
+            )
+        if self.kind not in ("recurring", "onetime"):
+            raise ValueError(f"Alarm {self.id}: unknown kind {self.kind!r}")
 
     @property
     def alarm_time(self) -> dt_time:
@@ -89,23 +111,31 @@ class AlarmSqliteStore:
         await self.hass.async_add_executor_job(self._setup)
 
     @contextmanager
-    def _connection(self) -> Iterator[sqlite3.Connection]:
+    def _connection(self, op: str) -> Iterator[sqlite3.Connection]:
         """Short-lived connection - commits (or rolls back) on exit, then always closes.
 
         `sqlite3.Connection`'s own context manager only handles the
         transaction, not closing - wrapping it here so every call site gets
-        both without repeating a try/finally.
+        both without repeating a try/finally. Also logs `op` (with whatever
+        identifying context the caller included) before re-raising any
+        sqlite3 error, since this is the only place all schedule persistence
+        goes through - without this, a disk-full/locked-db/corruption error
+        surfaces as a bare, context-free traceback.
         """
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
         try:
-            with conn:
-                yield conn
-        finally:
-            conn.close()
+            conn = sqlite3.connect(self._db_path)
+            conn.row_factory = sqlite3.Row
+            try:
+                with conn:
+                    yield conn
+            finally:
+                conn.close()
+        except sqlite3.Error as err:
+            _LOGGER.error("Alarm Clock: SQLite %s failed: %s", op, err)
+            raise
 
     def _setup(self) -> None:
-        with self._connection() as conn:
+        with self._connection("setup") as conn:
             conn.execute(_CREATE_TABLE)
             conn.execute(_CREATE_INDEX)
 
@@ -113,7 +143,7 @@ class AlarmSqliteStore:
         return await self.hass.async_add_executor_job(self._load_for_device, device_id)
 
     def _load_for_device(self, device_id: str) -> list[Alarm]:
-        with self._connection() as conn:
+        with self._connection(f"load_for_device(device_id={device_id!r})") as conn:
             rows = conn.execute(
                 "SELECT * FROM alarms WHERE device_id = ? ORDER BY id", (device_id,)
             ).fetchall()
@@ -145,7 +175,7 @@ class AlarmSqliteStore:
         now = dt_util.utcnow().isoformat()
         time_str = f"{time.hour:02d}:{time.minute:02d}"
         date_str = date.isoformat() if date else None
-        with self._connection() as conn:
+        with self._connection(f"insert(device_id={device_id!r}, kind={kind!r})") as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO alarms
@@ -163,7 +193,7 @@ class AlarmSqliteStore:
 
     def _set_enabled(self, alarm_id: int, enabled: bool) -> Alarm:
         now = dt_util.utcnow().isoformat()
-        with self._connection() as conn:
+        with self._connection(f"set_enabled(alarm_id={alarm_id})") as conn:
             conn.execute(
                 "UPDATE alarms SET enabled = ?, updated_at = ? WHERE id = ?",
                 (1 if enabled else 0, now, alarm_id),
@@ -175,7 +205,7 @@ class AlarmSqliteStore:
         await self.hass.async_add_executor_job(self._delete, alarm_id)
 
     def _delete(self, alarm_id: int) -> None:
-        with self._connection() as conn:
+        with self._connection(f"delete(alarm_id={alarm_id})") as conn:
             conn.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
 
     async def async_delete_where(
@@ -186,7 +216,8 @@ class AlarmSqliteStore:
         )
 
     def _delete_where(self, device_id: str, kind: str, weekday: str | None) -> list[int]:
-        with self._connection() as conn:
+        op = f"delete_where(device_id={device_id!r}, kind={kind!r}, weekday={weekday!r})"
+        with self._connection(op) as conn:
             if weekday is not None:
                 rows = conn.execute(
                     "SELECT id FROM alarms WHERE device_id = ? AND kind = ? AND weekday = ?",
