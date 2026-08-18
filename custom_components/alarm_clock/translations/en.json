@@ -22,6 +22,7 @@
           "title": "Add alarm clock",
           "data": {
             "name": "Name",
+            "snooze_button_entity_id": "Snooze button (event entity, optional) - any event triggers snooze, e.g. a Voice PE button press",
             "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",
@@ -34,6 +35,7 @@
           "title": "Edit alarm clock",
           "data": {
             "name": "Name",
+            "snooze_button_entity_id": "Snooze button (event entity, optional) - any event triggers snooze, e.g. a Voice PE button press",
             "media": "Output device + alarm sound (browse media)",
             "light_entity_ids": "Light(s) to turn on when ringing (optional)",
             "light_rgb_color": "Light color",

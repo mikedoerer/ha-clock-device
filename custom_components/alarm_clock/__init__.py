@@ -11,6 +11,7 @@ than surgically diffing subentries.
 
 from __future__ import annotations
 
+import logging
 from datetime import time as dt_time
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ from .intent import async_setup_intents
 from .models import WEEKDAY_ORDER
 from .services import async_setup_services
 from .store import AlarmSqliteStore
+
+_LOGGER = logging.getLogger(__name__)
 
 _EXPOSURE_MIGRATION_DONE_KEY = "done"
 _SCHEDULE_MIGRATION_DONE_KEY = "done"
@@ -154,9 +157,20 @@ async def _async_migrate_schedule_to_sqlite_once(
             for day_value, day_data in legacy_data.get("weekdays", {}).items():
                 if not day_data.get("enabled"):
                     continue
+                raw_time = day_data.get("time", "07:00:00")
                 try:
-                    alarm_time = dt_time.fromisoformat(day_data.get("time", "07:00:00"))
+                    alarm_time = dt_time.fromisoformat(raw_time)
                 except ValueError:
+                    # This migration runs at most once ever (see the Store
+                    # guard below) - a dropped alarm here is gone for good,
+                    # so it must not vanish without a trace.
+                    _LOGGER.warning(
+                        "Alarm Clock: dropping legacy recurring alarm for device %s, "
+                        "weekday %s - unparseable time %r during SQLite migration",
+                        subentry_id,
+                        day_value,
+                        raw_time,
+                    )
                     continue
                 await alarm_store.async_insert(
                     subentry_id, "recurring", alarm_time, weekday=day_value
@@ -169,6 +183,13 @@ async def _async_migrate_schedule_to_sqlite_once(
                     onetime_dt = dt_util.as_local(onetime_dt)
                     await alarm_store.async_insert(
                         subentry_id, "onetime", onetime_dt.time(), date=onetime_dt.date()
+                    )
+                else:
+                    _LOGGER.warning(
+                        "Alarm Clock: dropping legacy one-time alarm for device %s - "
+                        "unparseable datetime %r during SQLite migration",
+                        subentry_id,
+                        onetime_raw,
                     )
 
         for key, entity_domain in _LEGACY_ENTITY_KEYS:
