@@ -183,11 +183,22 @@ def _resolve_named_device(intent_obj: intent.Intent) -> AlarmClockCoordinator | 
 
 
 def _entity_area_id(hass: HomeAssistant, entity_id: str) -> str | None:
-    """Effective area of an entity: its own override, else its device's area."""
+    """Effective area of an entity: its own override, else its device's area.
+
+    No HA core helper for this exists in any released version - entity_registry's
+    async_get_effective_area_id/device_registry's async_get_effective_area_id only
+    landed on HA core's dev branch (child-devices support), so the fallback is
+    inlined here instead of depending on it.
+    """
     entry = er.async_get(hass).async_get(entity_id)
     if entry is None:
         return None
-    return er.async_get_effective_area_id(hass, entry)
+    if entry.area_id is not None:
+        return entry.area_id
+    if entry.device_id is None:
+        return None
+    device = dr.async_get(hass).async_get(entry.device_id)
+    return device.area_id if device is not None else None
 
 
 def _coordinator_area_id(
@@ -195,9 +206,7 @@ def _coordinator_area_id(
 ) -> str | None:
     """Effective area of an alarm clock's own virtual device."""
     device = device_registry.async_get_device(identifiers={(DOMAIN, coordinator.subentry_id)})
-    if device is None:
-        return None
-    return dr.async_get_effective_area_id(hass, device)
+    return device.area_id if device is not None else None
 
 
 def _resolve_by_satellite_area(
