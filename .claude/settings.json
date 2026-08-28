@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "home-assistant-skills@home-assistant-skills": true,
+    "security-guidance@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true
+  }
+}
