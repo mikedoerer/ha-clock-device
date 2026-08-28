@@ -6,13 +6,14 @@ import logging
 from datetime import datetime, time as dt_time, timedelta
 from typing import Any
 
-from homeassistant.components.media_player import MediaPlayerState
+from homeassistant.components.media_player import ATTR_MEDIA_DURATION, MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
+    async_call_later,
     async_track_point_in_time,
     async_track_state_change_event,
 )
@@ -41,6 +42,15 @@ from .store import Alarm, AlarmSqliteStore
 _LOGGER = logging.getLogger(__name__)
 
 _MEDIA_IDLE_STATES = {MediaPlayerState.IDLE, MediaPlayerState.PAUSED, MediaPlayerState.OFF}
+
+# The ringing loop re-issues play_media when the output media_player reports it
+# has gone idle. That state-change watcher is instant on players that push state
+# (Voice PE) but blind on ones HA only polls - Fully Kiosk Browser hard-codes a
+# 30s poll (fully_kiosk/const.py UPDATE_INTERVAL), leaving up to 30s of silence
+# between loops regardless of clip length. A timer-based replay runs alongside
+# the watcher so the loop never depends on the poll interval; it's sized to the
+# player's reported media_duration when available, else this flat default.
+FALLBACK_REPLAY_SECONDS = 20
 
 
 class AlarmClockCoordinator:
@@ -73,6 +83,7 @@ class AlarmClockCoordinator:
 
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
+        self._unsub_media_timer = None
         self._unsub_snooze = None
         self._unsub_snooze_button = None
 
@@ -338,9 +349,7 @@ class AlarmClockCoordinator:
             )
             if volume_ok:
                 await self._async_play_media(media_player)
-                self._unsub_media_watch = async_track_state_change_event(
-                    self.hass, [media_player], self._async_handle_media_state
-                )
+                self._arm_replay_watchers(media_player)
 
         light_ids: list[str] = data.get(CONF_LIGHT_ENTITY_IDS) or []
         if light_ids:
@@ -408,6 +417,48 @@ class AlarmClockCoordinator:
         media_player = self._media_player_entity_id()
         if media_player:
             await self._async_play_media(media_player)
+            self._arm_replay_watchers(media_player)
+
+    async def _async_handle_media_timer_fallback(self, now: datetime) -> None:
+        """Timer-driven replay for players HA polls too slowly for the state watcher to catch."""
+        self._unsub_media_timer = None
+        if self.state != AlarmState.RINGING:
+            return
+        media_player = self._media_player_entity_id()
+        if media_player:
+            await self._async_play_media(media_player)
+            self._arm_replay_watchers(media_player)
+
+    @callback
+    def _arm_replay_watchers(self, media_player: str) -> None:
+        """(Re)arm both ringing-loop triggers after a play_media call.
+
+        The state-change watcher catches the track ending instantly on
+        players that push state; the fallback timer covers players HA only
+        polls (Fully Kiosk: fixed 30s). Whichever fires first replays and
+        calls back here, so the other is always cancelled and reset - the
+        loop stays single-shot with no overlapping playback.
+        """
+        if self._unsub_media_watch is not None:
+            self._unsub_media_watch()
+        self._unsub_media_watch = async_track_state_change_event(
+            self.hass, [media_player], self._async_handle_media_state
+        )
+        if self._unsub_media_timer is not None:
+            self._unsub_media_timer()
+        self._unsub_media_timer = async_call_later(
+            self.hass, self._replay_delay(media_player), self._async_handle_media_timer_fallback
+        )
+
+    def _replay_delay(self, media_player: str) -> float:
+        """Seconds before the fallback replay fires - the track's own length when the
+        player reports it (so a long ringtone isn't cut short by a premature replay),
+        else a flat default for players that don't expose media_duration."""
+        state = self.hass.states.get(media_player)
+        duration = state.attributes.get(ATTR_MEDIA_DURATION) if state else None
+        if isinstance(duration, (int, float)) and duration > 0:
+            return min(float(duration) + 2, 300)
+        return FALLBACK_REPLAY_SECONDS
 
     async def async_snooze(self, duration_override: timedelta | None = None) -> None:
         if self.state == AlarmState.IDLE:
@@ -441,10 +492,13 @@ class AlarmClockCoordinator:
         await self._async_silence_output()
 
     def _cancel_watchers(self) -> None:
-        """Cancel the ringing-loop watcher and any pending snooze-wake timer - instant, no I/O."""
+        """Cancel the ringing-loop watchers and any pending snooze-wake timer - instant, no I/O."""
         if self._unsub_media_watch is not None:
             self._unsub_media_watch()
             self._unsub_media_watch = None
+        if self._unsub_media_timer is not None:
+            self._unsub_media_timer()
+            self._unsub_media_timer = None
         if self._unsub_snooze is not None:
             self._unsub_snooze()
             self._unsub_snooze = None
@@ -470,6 +524,7 @@ class AlarmClockCoordinator:
         for unsub in (
             self._unsub_next_alarm,
             self._unsub_media_watch,
+            self._unsub_media_timer,
             self._unsub_snooze,
             self._unsub_snooze_button,
         ):
@@ -477,5 +532,6 @@ class AlarmClockCoordinator:
                 unsub()
         self._unsub_next_alarm = None
         self._unsub_media_watch = None
+        self._unsub_media_timer = None
         self._unsub_snooze = None
         self._unsub_snooze_button = None
