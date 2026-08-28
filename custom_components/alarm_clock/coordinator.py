@@ -48,9 +48,14 @@ _MEDIA_IDLE_STATES = {MediaPlayerState.IDLE, MediaPlayerState.PAUSED, MediaPlaye
 # (Voice PE) but blind on ones HA only polls - Fully Kiosk Browser hard-codes a
 # 30s poll (fully_kiosk/const.py UPDATE_INTERVAL), leaving up to 30s of silence
 # between loops regardless of clip length. A timer-based replay runs alongside
-# the watcher so the loop never depends on the poll interval; it's sized to the
-# player's reported media_duration when available, else this flat default.
-FALLBACK_REPLAY_SECONDS = 20
+# the watcher so the loop never depends on the poll interval.
+#
+# When the player reports media_duration the timer tracks that (+2s) and the
+# state watcher wins the race anyway. This flat default only bites on players
+# that never report a duration (Fully Kiosk) - kept short so a brief ringtone
+# there loops with a ~1s gap, at the cost of restarting a longer clip before it
+# finishes (fine for an alarm tone; use a pre-looped file for a melody).
+FALLBACK_REPLAY_SECONDS = 6
 
 
 class AlarmClockCoordinator:
@@ -416,6 +421,7 @@ class AlarmClockCoordinator:
             return
         media_player = self._media_player_entity_id()
         if media_player:
+            _LOGGER.debug("Alarm Clock '%s': replaying ringtone (state watcher: %s idle)", self.name, media_player)
             await self._async_play_media(media_player)
             self._arm_replay_watchers(media_player)
 
@@ -426,6 +432,7 @@ class AlarmClockCoordinator:
             return
         media_player = self._media_player_entity_id()
         if media_player:
+            _LOGGER.debug("Alarm Clock '%s': replaying ringtone (fallback timer)", self.name)
             await self._async_play_media(media_player)
             self._arm_replay_watchers(media_player)
 
@@ -446,8 +453,15 @@ class AlarmClockCoordinator:
         )
         if self._unsub_media_timer is not None:
             self._unsub_media_timer()
+        delay = self._replay_delay(media_player)
         self._unsub_media_timer = async_call_later(
-            self.hass, self._replay_delay(media_player), self._async_handle_media_timer_fallback
+            self.hass, delay, self._async_handle_media_timer_fallback
+        )
+        _LOGGER.debug(
+            "Alarm Clock '%s': replay watchers armed for %s (fallback timer %.0fs)",
+            self.name,
+            media_player,
+            delay,
         )
 
     def _replay_delay(self, media_player: str) -> float:
