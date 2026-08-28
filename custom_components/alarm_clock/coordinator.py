@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, time as dt_time, timedelta
 from typing import Any
 
-from homeassistant.components.media_player import ATTR_MEDIA_DURATION, MediaPlayerState
+import mutagen
+
+from homeassistant.components.media_player import MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
@@ -50,11 +53,12 @@ _MEDIA_IDLE_STATES = {MediaPlayerState.IDLE, MediaPlayerState.PAUSED, MediaPlaye
 # between loops regardless of clip length. A timer-based replay runs alongside
 # the watcher so the loop never depends on the poll interval.
 #
-# When the player reports media_duration the timer tracks that (+2s) and the
-# state watcher wins the race anyway. This flat default only bites on players
-# that never report a duration (Fully Kiosk) - kept short so a brief ringtone
-# there loops with a ~1s gap, at the cost of restarting a longer clip before it
-# finishes (fine for an alarm tone; use a pre-looped file for a melody).
+# The timer is sized to the alarm sound's real length, read straight off the
+# file (`_probe_media_duration`) - a player's reported media_duration is absent
+# on polled players and can be stale from whatever it played last. This flat
+# default only applies when the file can't be read (non-local source, unknown
+# container): kept short so a brief clip still loops tightly, at the cost of
+# restarting a longer unknown clip before it ends.
 FALLBACK_REPLAY_SECONDS = 6
 
 
@@ -91,6 +95,11 @@ class AlarmClockCoordinator:
         self._unsub_media_timer = None
         self._unsub_snooze = None
         self._unsub_snooze_button = None
+
+        # Replay-loop timing: how long to let the alarm sound play before the
+        # fallback timer re-issues it, resolved from the file at ring start.
+        self._replay_delay_seconds: float = FALLBACK_REPLAY_SECONDS
+        self._media_duration_cache: dict[str, float | None] = {}
 
         # Snooze duration / volume only now - the schedule (weekdays +
         # one-time alarms) lives in `_alarm_store` (SQLite) instead.
@@ -353,6 +362,7 @@ class AlarmClockCoordinator:
                 {"entity_id": media_player, "volume_level": self.volume},
             )
             if volume_ok:
+                self._replay_delay_seconds = await self._async_compute_replay_delay()
                 await self._async_play_media(media_player)
                 self._arm_replay_watchers(media_player)
 
@@ -453,26 +463,71 @@ class AlarmClockCoordinator:
         )
         if self._unsub_media_timer is not None:
             self._unsub_media_timer()
-        delay = self._replay_delay(media_player)
         self._unsub_media_timer = async_call_later(
-            self.hass, delay, self._async_handle_media_timer_fallback
+            self.hass, self._replay_delay_seconds, self._async_handle_media_timer_fallback
         )
         _LOGGER.debug(
-            "Alarm Clock '%s': replay watchers armed for %s (fallback timer %.0fs)",
+            "Alarm Clock '%s': replay watchers armed for %s (fallback timer %.1fs)",
             self.name,
             media_player,
-            delay,
+            self._replay_delay_seconds,
         )
 
-    def _replay_delay(self, media_player: str) -> float:
-        """Seconds before the fallback replay fires - the track's own length when the
-        player reports it (so a long ringtone isn't cut short by a premature replay),
-        else a flat default for players that don't expose media_duration."""
-        state = self.hass.states.get(media_player)
-        duration = state.attributes.get(ATTR_MEDIA_DURATION) if state else None
-        if isinstance(duration, (int, float)) and duration > 0:
-            return min(float(duration) + 2, 300)
+    async def _async_compute_replay_delay(self) -> float:
+        """How long to let the alarm sound play before the fallback timer re-issues it.
+
+        Sized to the sound file's real length: a polled player (Fully Kiosk)
+        never reports a media_duration, and a player's reported one can be
+        stale from whatever it last played. Falls back to a short default
+        when the file can't be read (non-local source, unknown container).
+        """
+        media = self.subentry.data.get(CONF_MEDIA) or {}
+        duration = await self._async_probe_media_duration(media.get(CONF_MEDIA_CONTENT_ID))
+        if duration is not None and duration > 0:
+            return max(duration, 1.0)
         return FALLBACK_REPLAY_SECONDS
+
+    async def _async_probe_media_duration(self, media_content_id: str | None) -> float | None:
+        """Length of a local alarm sound in seconds, or None - cached per content id."""
+        if not media_content_id:
+            return None
+        if media_content_id not in self._media_duration_cache:
+            self._media_duration_cache[media_content_id] = await self.hass.async_add_executor_job(
+                self._probe_media_duration, media_content_id
+            )
+        return self._media_duration_cache[media_content_id]
+
+    def _probe_media_duration(self, media_content_id: str) -> float | None:
+        """Read a local media-source file's duration off disk (runs in an executor)."""
+        path = self._resolve_local_media_path(media_content_id)
+        if path is None:
+            return None
+        try:
+            audio = mutagen.File(path)
+        except Exception:  # noqa: BLE001 - unreadable/unknown file: use the default
+            _LOGGER.debug(
+                "Alarm Clock '%s': could not read duration from %s", self.name, path, exc_info=True
+            )
+            return None
+        if audio is None or audio.info is None:
+            return None
+        return float(audio.info.length)
+
+    def _resolve_local_media_path(self, media_content_id: str) -> str | None:
+        """Filesystem path for a `media-source://media_source/<dir_id>/<location>` URI, if it maps to a real file."""
+        prefix = "media-source://media_source/"
+        if not media_content_id.startswith(prefix):
+            return None
+        dir_id, _, location = media_content_id[len(prefix):].partition("/")
+        base = self.hass.config.media_dirs.get(dir_id)
+        if not base or not location:
+            return None
+        base = os.path.normpath(base)
+        candidate = os.path.normpath(os.path.join(base, location))
+        # Refuse anything that traverses out of the configured media directory.
+        if candidate != base and not candidate.startswith(base + os.sep):
+            return None
+        return candidate if os.path.isfile(candidate) else None
 
     async def async_snooze(self, duration_override: timedelta | None = None) -> None:
         if self.state == AlarmState.IDLE:
