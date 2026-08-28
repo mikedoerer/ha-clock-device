@@ -60,9 +60,18 @@ def _alarm_clock_schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME)): TextSelector(),
-            vol.Optional(
-                CONF_SNOOZE_BUTTON_ENTITY_ID,
-                default=defaults.get(CONF_SNOOZE_BUTTON_ENTITY_ID),
+            # Only attach a default when one actually exists: voluptuous would
+            # otherwise inject `default=None`, and EntitySelector(domain="event")
+            # rejects None ("Entity None is neither a valid entity ID nor a valid
+            # UUID") even though the field is optional. With no default, an absent
+            # field is simply dropped.
+            (
+                vol.Optional(
+                    CONF_SNOOZE_BUTTON_ENTITY_ID,
+                    default=defaults[CONF_SNOOZE_BUTTON_ENTITY_ID],
+                )
+                if defaults.get(CONF_SNOOZE_BUTTON_ENTITY_ID) is not None
+                else vol.Optional(CONF_SNOOZE_BUTTON_ENTITY_ID)
             ): EntitySelector(EntitySelectorConfig(domain="event")),
             vol.Required(
                 CONF_MEDIA,
