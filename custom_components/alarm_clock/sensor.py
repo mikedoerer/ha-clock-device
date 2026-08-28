@@ -34,6 +34,9 @@ class NextTriggerSensor(AlarmClockEntity, SensorEntity):
 
     @property
     def native_value(self) -> datetime | None:
+        """Prefer the sooner snooze wake-up time over the regular schedule while snoozed."""
+        if self.coordinator.snooze_until is not None:
+            return self.coordinator.snooze_until
         return self.coordinator.next_trigger
 
     @property
