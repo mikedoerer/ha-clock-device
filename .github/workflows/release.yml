@@ -21,18 +21,28 @@ jobs:
     steps:
       - uses: "actions/checkout@v4"
 
-      - name: Read version from manifest.json
+      - name: Read and validate version from manifest.json
         id: version
         run: |
           version=$(jq -r '.version' custom_components/alarm_clock/manifest.json)
+          # Strict X.Y.Z check before this value goes anywhere near GITHUB_OUTPUT
+          # or a later shell command - it rules out both output-injection (a
+          # crafted value forging extra "key=value" lines) and script injection
+          # (shell metacharacters) at the source, regardless of how the value
+          # is used downstream.
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::manifest.json version '$version' doesn't look like X.Y.Z, refusing to release"
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Check if this version was already released
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -42,7 +52,8 @@ jobs:
         if: steps.check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
             --generate-notes
