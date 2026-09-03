@@ -96,7 +96,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     new_subentry_ids: set[str] = set()
     for subentry_id, subentry in entry.subentries.items():
-        if device_registry.async_get_device(identifiers={(DOMAIN, subentry_id)}) is None:
+        if (
+            device_registry.async_get_device_by_identifier(
+                (DOMAIN, subentry_id), entry.entry_id
+            )
+            is None
+        ):
             new_subentry_ids.add(subentry_id)
 
         coordinator = AlarmClockCoordinator(hass, entry, subentry, alarm_store)
@@ -115,8 +120,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     if new_subentry_ids:
-        _set_default_exposure(hass, device_registry, new_subentry_ids)
-    await _async_migrate_exposure_once(hass, device_registry, set(entry.subentries))
+        _set_default_exposure(hass, device_registry, entry.entry_id, new_subentry_ids)
+    await _async_migrate_exposure_once(
+        hass, device_registry, entry.entry_id, set(entry.subentries)
+    )
 
     # All entities exist now and read straight from the coordinator, so it's
     # safe to kick off scheduling only after platform setup has completed.
@@ -203,7 +210,10 @@ async def _async_migrate_schedule_to_sqlite_once(
 
 
 def _set_default_exposure(
-    hass: HomeAssistant, device_registry: dr.DeviceRegistry, subentry_ids: set[str]
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    config_entry_id: str,
+    subentry_ids: set[str],
 ) -> None:
     """Apply Assist exposure defaults to a brand-new alarm clock's entities.
 
@@ -213,7 +223,9 @@ def _set_default_exposure(
     """
     entity_registry = er.async_get(hass)
     for subentry_id in subentry_ids:
-        device = device_registry.async_get_device(identifiers={(DOMAIN, subentry_id)})
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, subentry_id), config_entry_id
+        )
         if device is None:
             continue
         for entity in er.async_entries_for_device(entity_registry, device.id):
@@ -223,7 +235,10 @@ def _set_default_exposure(
 
 
 async def _async_migrate_exposure_once(
-    hass: HomeAssistant, device_registry: dr.DeviceRegistry, subentry_ids: set[str]
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    config_entry_id: str,
+    subentry_ids: set[str],
 ) -> None:
     """Apply the same exposure defaults to devices that already existed before this feature shipped.
 
@@ -236,7 +251,7 @@ async def _async_migrate_exposure_once(
     store = Store[dict[str, bool]](hass, STORAGE_VERSION, f"{DOMAIN}_exposure_migration")
     if await store.async_load():
         return
-    _set_default_exposure(hass, device_registry, subentry_ids)
+    _set_default_exposure(hass, device_registry, config_entry_id, subentry_ids)
     await store.async_save({_EXPOSURE_MIGRATION_DONE_KEY: True})
 
 
