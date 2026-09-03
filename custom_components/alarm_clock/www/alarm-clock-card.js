@@ -140,16 +140,16 @@ const CARD_STYLE = `
   .action-buttons .snooze-btn {
     background: var(--primary-color); color: var(--text-primary-color, #fff);
   }
-  .alarm-list { display: flex; flex-direction: column; gap: 4px; }
-  .alarm-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; border-radius: 8px;
-    background: var(--secondary-background-color);
-  }
+  .alarm-list { display: flex; flex-direction: column; }
+  /* Plain entity-style rows: the 16px card padding is the only inset,
+     no per-row background or padding of its own - matches HA's built-in
+     list cards. */
+  .alarm-row { display: flex; align-items: center; gap: 12px; min-height: 40px; }
   .alarm-row ha-icon { color: var(--secondary-text-color); flex-shrink: 0; }
   .alarm-row .alarm-label { flex: 1; color: var(--primary-text-color); }
   .alarm-row button.delete-btn {
-    background: none; border: none; cursor: pointer; padding: 4px;
+    background: none; border: none; cursor: pointer; padding: 8px;
+    margin-right: -8px; margin-inline-end: -8px;
     color: var(--secondary-text-color); display: flex; align-items: center;
   }
   .alarm-row button.delete-btn:hover { color: var(--error-color, #db4437); }
