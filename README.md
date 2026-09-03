@@ -63,7 +63,7 @@ On first start, the integration also automatically copies the voice commands to 
 
 ## Dashboard card
 
-A bundled Lovelace card (`custom_components/alarm_clock/www/alarm-clock-card.js`) gives one device's schedule a proper UI, without needing per-alarm entities: it shows the next alarm, lists every currently armed alarm (recurring and one-time) with a delete button per row, and a small form to add a new recurring or one-time alarm. It's plain JavaScript, no build step, and works entirely through the same `alarm_clock.*` services voice control uses (including the new `delete_alarm`, which removes one specific alarm by id - the card's per-row delete button - independent of `delete_recurring`'s per-weekday and `delete_onetime`'s ambiguity-refusing scope).
+A bundled Lovelace card (`custom_components/alarm_clock/www/alarm-clock-card.js`) gives one device's schedule a proper UI, without needing per-alarm entities: it shows the next alarm, lists every currently armed alarm (recurring and one-time) with a delete button per row, and a small form to add a new one-time or recurring alarm (the form opens on one-time; leaving the one-time date blank uses the same "next matching day" fallback as voice). It's plain JavaScript, no build step, and works entirely through the same `alarm_clock.*` services voice control uses (including the new `delete_alarm`, which removes one specific alarm by id - the card's per-row delete button - independent of `delete_recurring`'s per-weekday and `delete_onetime`'s ambiguity-refusing scope).
 
 The integration serves the file itself (at `/alarm_clock_static/alarm-clock-card.js`) but does **not** auto-register it as a dashboard resource - add it once:
 
