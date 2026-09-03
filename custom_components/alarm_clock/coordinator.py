@@ -479,10 +479,22 @@ class AlarmClockCoordinator:
         Sized to the sound file's real length: a polled player (Fully Kiosk)
         never reports a media_duration, and a player's reported one can be
         stale from whatever it last played. Falls back to a short default
-        when the file can't be read (non-local source, unknown container).
+        when the file can't be read (non-local source, unknown container) -
+        and, just as importantly, on *any other* failure while probing it.
+        This runs before the actual play_media/light calls in
+        `async_start_ringing`; letting an exception escape here (a bad path,
+        a permission error, whatever) would abort the ring sequence before
+        it ever plays sound or turns on a light, with only the `state`
+        attribute having flipped to ringing - silent from the outside.
         """
-        media = self.subentry.data.get(CONF_MEDIA) or {}
-        duration = await self._async_probe_media_duration(media.get(CONF_MEDIA_CONTENT_ID))
+        try:
+            media = self.subentry.data.get(CONF_MEDIA) or {}
+            duration = await self._async_probe_media_duration(media.get(CONF_MEDIA_CONTENT_ID))
+        except Exception:  # noqa: BLE001 - see docstring: must never block ringing
+            _LOGGER.exception(
+                "Alarm Clock '%s': failed to compute replay delay, using the fallback", self.name
+            )
+            return FALLBACK_REPLAY_SECONDS
         if duration is not None and duration > 0:
             return max(duration, 1.0)
         return FALLBACK_REPLAY_SECONDS
