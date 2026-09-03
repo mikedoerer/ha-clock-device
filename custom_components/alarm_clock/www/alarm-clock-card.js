@@ -26,7 +26,7 @@ const I18N = {
     months: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
     selectWeekday: "Bitte mindestens einen Wochentag auswählen.",
     fillTime: "Bitte eine Uhrzeit angeben.",
-    fillDate: "Bitte ein Datum angeben.",
+    dateOptionalHint: "Ohne Datum: nächster passender Tag.",
     entityNotFound: "Wecker-Entität nicht gefunden.",
     noEntity: "Bitte in den Karteneinstellungen einen Wecker auswählen.",
     error: "Fehler",
@@ -50,7 +50,7 @@ const I18N = {
     months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     selectWeekday: "Please select at least one weekday.",
     fillTime: "Please enter a time.",
-    fillDate: "Please enter a date.",
+    dateOptionalHint: "No date: next matching day.",
     entityNotFound: "Alarm clock entity not found.",
     noEntity: "Please select an alarm clock in the card settings.",
     error: "Error",
@@ -108,10 +108,14 @@ function sortAlarms(alarms) {
 
 const CARD_STYLE = `
   :host { display: block; }
-  ha-card { padding: 16px; }
+  /* ha-card itself supplies the 16px content padding via its own
+     ::slotted(.card-content) rule - adding padding here too was the
+     doubled-inset bug. One flex column with a gap owns all vertical
+     spacing so hidden ([hidden]) sections contribute nothing, the way
+     HA's built-in cards lay their content out. */
+  .card-content { display: flex; flex-direction: column; gap: 16px; }
   .card-header-row {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px;
   }
   /* Sized like the entity name on HA's media-control-card (inherited body
      text, medium weight), not a large ha-card header - keeps this card
@@ -120,7 +124,7 @@ const CARD_STYLE = `
     font-size: 1em; font-weight: 500;
     color: var(--primary-text-color);
   }
-  .ringing-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .ringing-actions { display: flex; flex-direction: column; gap: 8px; }
   .snooze-countdown-row {
     display: flex; align-items: center; gap: 8px;
     color: var(--primary-text-color); font-size: 0.95em;
@@ -136,7 +140,7 @@ const CARD_STYLE = `
   .action-buttons .snooze-btn {
     background: var(--primary-color); color: var(--text-primary-color, #fff);
   }
-  .alarm-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .alarm-list { display: flex; flex-direction: column; gap: 4px; }
   .alarm-row {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 8px; border-radius: 8px;
@@ -149,7 +153,7 @@ const CARD_STYLE = `
     color: var(--secondary-text-color); display: flex; align-items: center;
   }
   .alarm-row button.delete-btn:hover { color: var(--error-color, #db4437); }
-  .no-alarms { color: var(--secondary-text-color); font-style: italic; margin-bottom: 16px; }
+  .no-alarms { color: var(--secondary-text-color); font-style: italic; }
   .open-add-btn {
     background: none; border: none; cursor: pointer; padding: 6px;
     border-radius: 50%; color: var(--primary-color); flex-shrink: 0;
@@ -199,14 +203,18 @@ const CARD_STYLE = `
     flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--divider-color);
     background: var(--card-background-color); color: var(--primary-text-color); font: inherit;
   }
+  .field-hint {
+    color: var(--secondary-text-color); font-size: 0.85em; margin: -2px 0 10px;
+  }
   .add-btn {
     width: 100%; padding: 8px; border-radius: 8px; border: none;
     background: var(--primary-color); color: var(--text-primary-color, #fff);
     cursor: pointer; font: inherit;
   }
   .card-error-message, .modal-error-message {
-    color: var(--error-color, #db4437); margin-top: 8px; font-size: 0.9em;
+    color: var(--error-color, #db4437); font-size: 0.9em;
   }
+  .modal-error-message { margin-top: 8px; }
   [hidden] { display: none !important; }
 `;
 
@@ -296,7 +304,7 @@ class AlarmClockCard extends HTMLElement {
               <button type="button" class="snooze-btn">${t.snooze}</button>
             </div>
           </div>
-          <div class="alarm-list"></div>
+          <div class="alarm-list" hidden></div>
           <div class="no-alarms" hidden>${t.noAlarms}</div>
           <div class="card-error-message" hidden></div>
         </div>
@@ -310,10 +318,18 @@ class AlarmClockCard extends HTMLElement {
             </button>
           </div>
           <div class="mode-toggle">
-            <button type="button" class="mode-btn active" data-mode="recurring">${t.recurring}</button>
-            <button type="button" class="mode-btn" data-mode="onetime">${t.onetime}</button>
+            <button type="button" class="mode-btn active" data-mode="onetime">${t.onetime}</button>
+            <button type="button" class="mode-btn" data-mode="recurring">${t.recurring}</button>
           </div>
-          <div class="recurring-form">
+          <div class="onetime-form">
+            <div class="form-row">
+              <input type="date" class="onetime-date" />
+              <input type="time" class="onetime-time" />
+            </div>
+            <div class="field-hint">${t.dateOptionalHint}</div>
+            <button type="button" class="add-btn onetime-add">${t.add}</button>
+          </div>
+          <div class="recurring-form" hidden>
             <div class="weekday-chips">
               ${WEEKDAY_ORDER.map((day) => `<button type="button" data-day="${day}">${t.weekdayShort[day]}</button>`).join("")}
             </div>
@@ -322,21 +338,12 @@ class AlarmClockCard extends HTMLElement {
             </div>
             <button type="button" class="add-btn recurring-add">${t.add}</button>
           </div>
-          <div class="onetime-form" hidden>
-            <div class="form-row">
-              <input type="date" class="onetime-date" />
-              <input type="time" class="onetime-time" />
-            </div>
-            <button type="button" class="add-btn onetime-add">${t.add}</button>
-          </div>
           <div class="modal-error-message" hidden></div>
         </div>
       </div>
     `;
 
     const root = this.shadowRoot;
-    const recurringForm = root.querySelector(".recurring-form");
-    const onetimeForm = root.querySelector(".onetime-form");
     const modalOverlay = root.querySelector(".modal-overlay");
 
     root.querySelector(".open-add-btn").addEventListener("click", () => this._openModal());
@@ -346,14 +353,7 @@ class AlarmClockCard extends HTMLElement {
     });
 
     root.querySelectorAll(".mode-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        root.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        const isRecurring = btn.dataset.mode === "recurring";
-        recurringForm.hidden = !isRecurring;
-        onetimeForm.hidden = isRecurring;
-        this._clearError("modal");
-      });
+      btn.addEventListener("click", () => this._setMode(btn.dataset.mode));
     });
 
     root.querySelectorAll(".weekday-chips button").forEach((chip) => {
@@ -425,10 +425,12 @@ class AlarmClockCard extends HTMLElement {
     const noAlarmsEl = root.querySelector(".no-alarms");
     if (alarms.length === 0) {
       listEl.innerHTML = "";
+      listEl.hidden = true;
       noAlarmsEl.hidden = false;
       return;
     }
     noAlarmsEl.hidden = true;
+    listEl.hidden = false;
     listEl.innerHTML = sortAlarms(alarms)
       .map((alarm) => `
         <div class="alarm-row">
@@ -465,12 +467,25 @@ class AlarmClockCard extends HTMLElement {
     this._clearError("modal");
     const modalOverlay = this.shadowRoot.querySelector(".modal-overlay");
     modalOverlay.hidden = false;
+    // Always reopen on the one-time tab - that's the common case here.
+    this._setMode("onetime");
     this._escapeHandler = (ev) => {
       if (ev.key === "Escape") this._closeModal();
     };
     document.addEventListener("keydown", this._escapeHandler);
-    const firstField = modalOverlay.querySelector(".weekday-chips button");
+    const firstField = modalOverlay.querySelector(".onetime-time");
     if (firstField) firstField.focus();
+  }
+
+  _setMode(mode) {
+    const root = this.shadowRoot;
+    const isRecurring = mode === "recurring";
+    root.querySelectorAll(".mode-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    });
+    root.querySelector(".recurring-form").hidden = !isRecurring;
+    root.querySelector(".onetime-form").hidden = isRecurring;
+    this._clearError("modal");
   }
 
   _closeModal() {
@@ -553,16 +568,16 @@ class AlarmClockCard extends HTMLElement {
     const t = textsFor(this._hass);
     const dateInput = this.shadowRoot.querySelector(".onetime-date");
     const timeInput = this.shadowRoot.querySelector(".onetime-time");
-    if (!dateInput.value) {
-      this._showError(t.fillDate, "modal");
-      return;
-    }
     if (!timeInput.value) {
       this._showError(t.fillTime, "modal");
       return;
     }
+    // Date is optional - omitting it lets set_onetime pick the next matching
+    // day, the same fallback the AlarmClockSetOnetime voice intent uses.
+    const data = { time: timeInput.value };
+    if (dateInput.value) data.date = dateInput.value;
     try {
-      await this._callService("set_onetime", { date: dateInput.value, time: timeInput.value }, "modal");
+      await this._callService("set_onetime", data, "modal");
     } catch {
       return;
     }
