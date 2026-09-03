@@ -111,13 +111,16 @@ const CARD_STYLE = `
   ha-card { padding: 16px; }
   .card-header-row {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
+  /* Sized like the entity name on HA's media-control-card (inherited body
+     text, medium weight), not a large ha-card header - keeps this card
+     visually consistent with the media/entity cards it sits next to. */
   .device-name {
-    font-size: 1.2em; font-weight: 500;
-    color: var(--ha-card-header-color, var(--primary-text-color));
+    font-size: 1em; font-weight: 500;
+    color: var(--primary-text-color);
   }
-  .ringing-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .ringing-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
   .snooze-countdown-row {
     display: flex; align-items: center; gap: 8px;
     color: var(--primary-text-color); font-size: 0.95em;
