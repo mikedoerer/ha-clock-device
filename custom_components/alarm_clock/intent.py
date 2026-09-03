@@ -205,7 +205,9 @@ def _coordinator_area_id(
     hass: HomeAssistant, device_registry: dr.DeviceRegistry, coordinator: AlarmClockCoordinator
 ) -> str | None:
     """Effective area of an alarm clock's own virtual device."""
-    device = device_registry.async_get_device(identifiers={(DOMAIN, coordinator.subentry_id)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, coordinator.subentry_id), coordinator.entry.entry_id
+    )
     return device.area_id if device is not None else None
 
 
