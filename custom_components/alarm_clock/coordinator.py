@@ -12,7 +12,7 @@ import mutagen
 from homeassistant.components.media_player import MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
@@ -61,6 +61,11 @@ _MEDIA_IDLE_STATES = {MediaPlayerState.IDLE, MediaPlayerState.PAUSED, MediaPlaye
 # restarting a longer unknown clip before it ends.
 FALLBACK_REPLAY_SECONDS = 6
 
+# Which color attribute to restore, in order of preference. A light's state
+# only carries the attribute(s) matching its current color_mode, so this is
+# tried in order rather than assuming a fixed one is present.
+_LIGHT_COLOR_ATTRS = ("rgb_color", "rgbw_color", "rgbww_color", "hs_color", "xy_color", "color_temp_kelvin")
+
 
 class AlarmClockCoordinator:
     """Owns schedule + ringing state for one virtual alarm clock (= one subentry/device)."""
@@ -100,6 +105,11 @@ class AlarmClockCoordinator:
         # fallback timer re-issues it, resolved from the file at ring start.
         self._replay_delay_seconds: float = FALLBACK_REPLAY_SECONDS
         self._media_duration_cache: dict[str, float | None] = {}
+
+        # Each light's state right before the alarm turned it on, so stop/snooze
+        # can put it back instead of just switching it off - otherwise a bulb
+        # that remembers its last color would carry the alarm color forever.
+        self._light_original_states: dict[str, State] = {}
 
         # Snooze duration / volume only now - the schedule (weekdays +
         # one-time alarms) lives in `_alarm_store` (SQLite) instead.
@@ -368,6 +378,7 @@ class AlarmClockCoordinator:
 
         light_ids: list[str] = data.get(CONF_LIGHT_ENTITY_IDS) or []
         if light_ids:
+            self._capture_light_states(light_ids)
             await self._async_call_hardware(
                 "light",
                 "turn_on",
@@ -379,6 +390,13 @@ class AlarmClockCoordinator:
             )
 
         self._push_update()
+
+    def _capture_light_states(self, light_ids: list[str]) -> None:
+        """Snapshot each light's current state right before the alarm turns it on."""
+        for entity_id in light_ids:
+            state = self.hass.states.get(entity_id)
+            if state is not None:
+                self._light_original_states[entity_id] = state
 
     async def _async_call_hardware(self, domain: str, service: str, service_data: dict) -> bool:
         """Call a media_player/light service, logging (not raising) on failure.
@@ -594,9 +612,27 @@ class AlarmClockCoordinator:
         await self._async_lights_off()
 
     async def _async_lights_off(self) -> None:
+        """Undo the alarm's turn_on for every configured light, restoring what it looked like before."""
         light_ids: list[str] = self.subentry.data.get(CONF_LIGHT_ENTITY_IDS) or []
-        if light_ids:
-            await self._async_call_hardware("light", "turn_off", {"entity_id": light_ids})
+        for entity_id in light_ids:
+            await self._async_restore_light(entity_id)
+
+    async def _async_restore_light(self, entity_id: str) -> None:
+        original = self._light_original_states.pop(entity_id, None)
+        if original is None or original.state != "on":
+            await self._async_call_hardware("light", "turn_off", {"entity_id": entity_id})
+            return
+
+        service_data: dict[str, Any] = {"entity_id": entity_id}
+        brightness = original.attributes.get("brightness")
+        if brightness is not None:
+            service_data["brightness"] = brightness
+        for attr in _LIGHT_COLOR_ATTRS:
+            value = original.attributes.get(attr)
+            if value is not None:
+                service_data[attr] = value
+                break
+        await self._async_call_hardware("light", "turn_on", service_data)
 
     # ------------------------------------------------------------------
     # lifecycle
