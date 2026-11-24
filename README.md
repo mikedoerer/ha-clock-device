@@ -71,6 +71,15 @@ The integration serves the file itself (at `/alarm_clock_static/alarm-clock-card
 2. Edit any dashboard → *Add card → search "Alarm Clock"* (or add manually with `type: custom:alarm-clock-card`).
 3. In the card's settings, pick the alarm clock's "Next alarm" sensor (`sensor.<device>_next_trigger`) - that's the only field needed; the card reads the device name and its full schedule from that one entity.
 
+Optional card options (YAML):
+
+| Option | Default | Effect |
+|---|---|---|
+| `name` | - | Fixed header text, overrides everything below. |
+| `show_area` | `false` | Header shows "Area · Device" (e.g. "Schlafzimmer · Wecker") instead of only the device name. |
+
+The header is read from the device and area registries (device name as set in HA, area of the entity or its device), following Home Assistant's 2026.11 naming model, where devices are named without the room and `friendly_name` is slated for deprecation.
+
 ## Manual verification (Phase 1)
 
 - After creating a device, its 8 entities (`Snooze duration`, `Volume`, `Ringing`, `Snoozed`, `Next alarm`, buttons `Snooze`/`Stop`/`Test ring`) appear on the device page - the three buttons are under "Controls", `Snooze duration`/`Volume` under "Configuration". There's no schedule entity to configure here - arm the schedule via voice/services (see Phase 2 below).

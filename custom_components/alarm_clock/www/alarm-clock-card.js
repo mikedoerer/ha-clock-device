@@ -77,10 +77,11 @@ function formatAlarmLabel(alarm, t) {
 }
 
 function deviceNameFromFriendly(friendlyName) {
-  // Strips the translated entity name ("Nächster Alarm" / "Next alarm") that
-  // has_entity_name appends after the device name - covers both languages
-  // regardless of which one is currently active, since this repo only ships
-  // German + English translations (others fall back to the English string).
+  // Fallback only, for when the frontend registries (hass.entities/devices)
+  // aren't available. Strips the translated entity name ("Nächster Alarm" /
+  // "Next alarm") that has_entity_name appends after the device name.
+  // HA 2026.11 plans to deprecate the friendly_name attribute, so this path
+  // is expected to go away.
   return (friendlyName || "").replace(/\s*(Nächster Alarm|Next alarm)\s*$/i, "").trim();
 }
 
@@ -385,12 +386,53 @@ class AlarmClockCard extends HTMLElement {
     this._built = true;
   }
 
+  _registryEntry(entityId) {
+    return (this._hass.entities && this._hass.entities[entityId]) || null;
+  }
+
+  _headerText(stateObj) {
+    if (this._config.name) return String(this._config.name);
+    // HA 2026.11 naming model: device name and area are separate registry
+    // fields (friendly_name is slated for deprecation), and devices are now
+    // typically named without the room ("Wecker" + area "Schlafzimmer").
+    const entry = this._registryEntry(this._config.entity);
+    const device = entry && entry.device_id && this._hass.devices ? this._hass.devices[entry.device_id] : null;
+    const deviceName = device
+      ? device.name_by_user || device.name || ""
+      : deviceNameFromFriendly(stateObj.attributes.friendly_name);
+    if (!this._config.show_area) return deviceName;
+    const areaId = (entry && entry.area_id) || (device && device.area_id);
+    const area = areaId && this._hass.areas ? this._hass.areas[areaId] : null;
+    const areaName = area && area.name;
+    if (!areaName) return deviceName;
+    if (!deviceName) return areaName;
+    return `${areaName} · ${deviceName}`;
+  }
+
   _siblingEntityId(domain, suffix) {
-    // Deterministic - entity.py always names entities
-    // "<domain>.<slugified device name>_<key>", and this._config.entity is
-    // always the "..._next_trigger" sensor, so stripping/replacing that
-    // suffix gives every other entity of the same device without needing
-    // the frontend's device/entity registry helpers.
+    // Preferred: same device + translation_key (entity.py sets
+    // translation_key = key), which survives the user renaming entity_ids.
+    // Cached per hass.entities object (replaced, not mutated, on registry
+    // changes) so the full scan doesn't run on every state update.
+    const entities = this._hass.entities;
+    const cacheKey = `${this._config.entity}|${domain}|${suffix}`;
+    if (entities && this._siblingCacheSource !== entities) {
+      this._siblingCacheSource = entities;
+      this._siblingCache = new Map();
+    }
+    if (entities && this._siblingCache.has(cacheKey)) return this._siblingCache.get(cacheKey);
+    const entry = this._registryEntry(this._config.entity);
+    if (entry && entry.device_id && entities) {
+      const match = Object.values(entities).find(
+        (e) => e.device_id === entry.device_id && e.translation_key === suffix && e.entity_id.startsWith(`${domain}.`)
+      );
+      if (match) {
+        this._siblingCache.set(cacheKey, match.entity_id);
+        return match.entity_id;
+      }
+    }
+    // Fallback: entity.py names entities "<domain>.<slugified device name>_<key>"
+    // and this._config.entity is always the "..._next_trigger" sensor.
     const deviceSlug = (this._config.entity || "").replace(/^sensor\./, "").replace(/_next_trigger$/, "");
     return `${domain}.${deviceSlug}_${suffix}`;
   }
@@ -398,7 +440,7 @@ class AlarmClockCard extends HTMLElement {
   _updateDynamic(stateObj, t) {
     const root = this.shadowRoot;
 
-    root.querySelector(".device-name").textContent = deviceNameFromFriendly(stateObj.attributes.friendly_name);
+    root.querySelector(".device-name").textContent = this._headerText(stateObj);
 
     const ringingState = this._hass.states[this._siblingEntityId("binary_sensor", "ringing")];
     const snoozedState = this._hass.states[this._siblingEntityId("binary_sensor", "snoozed")];
